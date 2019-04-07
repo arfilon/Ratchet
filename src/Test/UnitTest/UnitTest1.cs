@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Arfilon.Ratchet;
 using Knyaz.Optimus;
 using Knyaz.Optimus.ResourceProviders;
@@ -15,7 +16,7 @@ namespace UnitTest
         [TestMethod]
         public void Foo()
         {
-            var engine = new E2EBrowser<WebApplication.Startup>();
+            var engine = new Ratchet<WebApplication.Startup>();
             engine.Console.OnLog += Console_OnLog;
 
             //Open Html5Test site
@@ -28,10 +29,10 @@ namespace UnitTest
 
             var t = engine.Document.TextContent;
             engine.ScriptExecutor.Execute("text/javascript", "console.log('mmmm');");
-
+            System.Threading.Thread.Sleep(2000);
             //Show result
             //System.Console.WriteLine("Score: " + tagWithValue.InnerHTML);
-            System.Console.ReadKey();
+          
         }
 
 

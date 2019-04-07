@@ -7,9 +7,9 @@ using Knyaz.Optimus.ResourceProviders;
 
 namespace Arfilon.Ratchet
 {
-    public class E2EBrowser<TSetup> : Knyaz.Optimus.Engine where TSetup : class
+    public class Ratchet<TSetup> : Knyaz.Optimus.Engine where TSetup : class
     {
-        public E2EBrowser() : base(new Resorce<TSetup>())
+        public Ratchet() : base(new Resorce<TSetup>())
         {
 
         }
