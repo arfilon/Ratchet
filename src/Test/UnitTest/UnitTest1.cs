@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Arfilon.Ratchet;
 using Knyaz.Optimus;
 using Knyaz.Optimus.ResourceProviders;
@@ -14,31 +15,22 @@ namespace UnitTest
     {
         public TestContext TestContext { get; set; }
         [TestMethod]
-        public void Foo()
+        public async Task Foo()
         {
             var engine = new Ratchet<WebApplication.Startup>();
-            engine.Console.OnLog += Console_OnLog;
 
-            //Open Html5Test site
-            // var p = engine.OpenUrl("http://localhost/").Result;
-            engine.OpenUrl("/home/About");
+            await engine.OpenUrl("/home/About");
 
-            //Wait until it finishes the test of browser and get DOM element with score value.
-            //var tagWithValue = engine.WaitSelector("#score strong").FirstOrDefault();
-            engine.WaitDocumentLoad();
+            var Document = await engine.WaitDocumentLoad();
 
-            var t = engine.Document.TextContent;
-            engine.ScriptExecutor.Execute("text/javascript", "console.log('mmmm');");
-            System.Threading.Thread.Sleep(2000);
-            //Show result
-            //System.Console.WriteLine("Score: " + tagWithValue.InnerHTML);
-          
+            var t = Document.TextContent;
+            var c = engine.WaitNextConsoleLog();
+            engine.ExecuteJavaScript("console.log('mmmm');");
+
+            TestContext.WriteLine("con: " + await c);
         }
 
 
-        private void Console_OnLog(object obj)
-        {
-            TestContext.WriteLine(obj.ToString());
-        }
+
     }
 }
