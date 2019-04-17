@@ -17,17 +17,19 @@ namespace UnitTest
         [TestMethod]
         public async Task Foo()
         {
-            var engine = new Ratchet<WebApplication.Startup>();
+            var browser = new Ratchet<WebApplication.Startup>();
 
-            await engine.OpenUrl("/home/About");
+            await browser.OpenUrl("/home/About");
 
-            var Document = await engine.WaitDocumentLoad();
+            var Document = await browser.WaitDocumentLoad();
 
             var t = Document.TextContent;
-            var c = engine.WaitNextConsoleLog();
-            engine.ExecuteJavaScript("console.log('mmmm');");
+            var c = browser.WaitNextConsoleLog();
+            browser.ExecuteJavaScript("console.log('Hello World');");
 
             TestContext.WriteLine("con: " + await c);
+
+            // TestContext Output : Hello World
         }
 
 
