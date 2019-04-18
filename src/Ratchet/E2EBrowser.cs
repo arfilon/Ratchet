@@ -25,7 +25,28 @@ namespace Arfilon.Ratchet
         {
             resourceProvider = new Resorce<TSetup>();
             engine = new Knyaz.Optimus.Engine(resourceProvider);
-            engine.Console.OnLog += Console_OnLog; ;
+            engine.Console.OnLog += Console_OnLog;
+            engine.OnRequest += Engine_OnRequest;
+            engine.DocumentChanged += Engine_DocumentChanged;
+        }
+
+        private void Engine_DocumentChanged()
+        {
+            foreach (var f in engine.Document.Forms)
+            {
+                f.OnSubmit -= Form_DefaultOnSubmit;
+                f.OnSubmit += Form_DefaultOnSubmit;
+            }
+        }
+
+        private void Form_DefaultOnSubmit(Knyaz.Optimus.Dom.Events.Event obj)
+        {
+
+        }
+
+        private void Engine_OnRequest(Request obj)
+        {
+            obj.Headers.Add("Accept-Language", "en-US");
         }
 
         private void Console_OnLog(object obj)
@@ -56,21 +77,42 @@ namespace Arfilon.Ratchet
                 path = new Uri(new Uri(baseAddress), path).AbsoluteUri;
             }
             var p = await engine.OpenUrl(path);
+            Engine_DocumentChanged();
             return p.Document;
         }
 
 
 
         /// <summary>
-		/// Emulate entering text by user into input textbox.
-		/// </summary>
-		public void FillInput(string query, string text)
+        /// Emulate entering text by user into input textbox.
+        /// </summary>
+        public void FillInput(string query, string text)
         {
             var input = Get<HtmlInputElement>(query).Single();
             input.Value = text;
             var evt = input.OwnerDocument.CreateEvent("Event");
             evt.InitEvent("change", false, false);
             input.DispatchEvent(evt);
+
+        }
+
+        /// <summary>
+		/// Emulate entering text by user into input textbox.
+		/// </summary>
+		public void ElementClick(string query)
+        {
+            var input = Get<HtmlElement>(query).Single();
+            input.OnClick += Input_OnClick;
+            //ExecuteJavaScript($@"document.getElementById('{query}').click();");
+            input.Click();
+            //var evt = input.OwnerDocument.CreateEvent("Event");
+            //evt.InitEvent("click", false, false);
+            //input.DispatchEvent(evt);
+        }
+
+        private bool? Input_OnClick(Knyaz.Optimus.Dom.Events.Event arg)
+        {
+            return null;
         }
 
         /// <summary>
@@ -119,9 +161,6 @@ namespace Arfilon.Ratchet
             return taskb.Task;
 
         }
-        /// <summary>
-        /// Wait for the loading of document.
-        /// </summary>
         public Task<string> WaitNextConsoleLog()
         {
             var taskb = new TaskCompletionSource<string>();
@@ -135,6 +174,19 @@ namespace Arfilon.Ratchet
 
             return taskb.Task;
 
+        }
+        public Task<string> WaitNextAlert()
+        {
+            var taskb = new TaskCompletionSource<string>();
+            Action<object> handler = null;
+            handler = text =>
+            {
+                taskb.SetResult((string)text);
+                engine.Window.OnAlert -= handler;
+            };
+            engine.Window.OnAlert += handler;
+
+            return taskb.Task;
         }
 
         /// <summary>
@@ -255,16 +307,16 @@ namespace Arfilon.Ratchet
 
             throw new TimeoutException();
         }
-        public Task WaitNextResponce(string query, int timeout = 0)
+        public Task WaitDocumentChanged(string query, int timeout = 0)
         {
             var taskb = new TaskCompletionSource<object>();
-            Action<ReceivedEventArguments> handler = null;
-            handler = r =>
+            Action handler = null;
+            handler = () =>
             {
                 taskb.SetResult(null);
-                engine.OnResponse -= handler;
+                engine.DocumentChanged -= handler;
             };
-            engine.OnResponse += handler;
+            engine.DocumentChanged += handler;
 
             return taskb.Task;
         }

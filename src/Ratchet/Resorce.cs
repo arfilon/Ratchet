@@ -1,4 +1,6 @@
 ﻿using System.IO;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
@@ -8,9 +10,10 @@ using Microsoft.AspNetCore.TestHost;
 
 namespace Arfilon.Ratchet
 {
-    internal class Resorce<TSetup> : IResourceProvider where TSetup :class
+    internal class Resorce<TSetup> : IResourceProvider where TSetup : class
     {
         private HttpClient client;
+        private CookieContainer cookies;
 
         public string BaseAddress { get; }
 
@@ -18,6 +21,8 @@ namespace Arfilon.Ratchet
         {
 
             client = new Microsoft.AspNetCore.TestHost.TestServer(new WebHostBuilder().UseStartup<TSetup>()).CreateClient();
+
+            cookies = new System.Net.CookieContainer();
             this.BaseAddress = client.BaseAddress.OriginalString;
         }
 
@@ -26,25 +31,28 @@ namespace Arfilon.Ratchet
             var m = new HttpRequestMessage();
             m.Method = new HttpMethod(request.Method);
             if (request.Data != null)
-                m.Content = new ByteArrayContent(request.Data);
+                m.Content = new StreamContent(new MemoryStream(request.Data));
+            var ch = cookies.GetCookieHeader(request.Url);
+            if (!string.IsNullOrWhiteSpace(ch))
+                m.Headers.Add("cookie", ch);
             foreach (var h in request.Headers)
                 m.Headers.Add(h.Key, h.Value);
 
+
             m.RequestUri = request.Url;
 
-            HttpResponseMessage resp = null;
-            if (request.Url.OriginalString.StartsWith(BaseAddress))
-            {
-                resp = await client.SendAsync(m);
-            }
-            else
-            {
-                
-                resp = await new HttpClient().SendAsync(m);
+            HttpClient httpClient  =request.Url.OriginalString.StartsWith(BaseAddress)? client: new HttpClient();
 
-            }
+            HttpResponseMessage resp = await httpClient.SendAsync(m);
 
-            return new TestResorce(resp.Content.Headers.ContentType.MediaType, await resp.Content.ReadAsStreamAsync());
+            foreach (var k in resp.Headers.Where(t => t.Key.ToLower() == "set-cookie").SelectMany(t => t.Value))
+            {
+                cookies.SetCookies( request.Url,k);
+            }
+            var data = await resp.Content.ReadAsByteArrayAsync();
+            var sr = new StreamReader(new MemoryStream(data));
+            var text = await sr.ReadToEndAsync();
+            return new TestResorce(resp.Content.Headers.ContentType?.MediaType ?? "text/html", new MemoryStream(data));
         }
     }
 

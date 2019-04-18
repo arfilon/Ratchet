@@ -15,6 +15,24 @@ namespace UnitTest
     {
         public TestContext TestContext { get; set; }
         [TestMethod]
+        public async Task Arfilon()
+        {
+
+            var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>();
+            var p = await b.OpenUrl("https://ddd.com");
+            b.FillInput("#txtUsername", "Admin");
+            b.FillInput("#txtPassword", "P@ssw0r");
+            b.ElementClick("#btn");
+            var p2 = await b.WaitDocumentLoad();
+
+            var username = await b.WaitSelector(".user");
+            Assert.AreEqual("Admin", username.First().InnerHTML);
+
+        }
+            
+            
+            
+            [TestMethod]
         public async Task Foo()
         {
             var browser = new Ratchet<WebApplication.Startup>();
