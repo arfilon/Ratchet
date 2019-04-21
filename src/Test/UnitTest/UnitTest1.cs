@@ -15,18 +15,18 @@ namespace UnitTest
     {
         public TestContext TestContext { get; set; }
         [TestMethod]
-        public async Task Arfilon()
+        public async Task Login()
         {
 
             var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>();
-            var p = await b.OpenUrl("https://ddd.com");
+            var p = await b.OpenUrl("http://localhost:54374/Accounts/Account/Login?ReturnUrl=%2F");
             b.FillInput("#txtUsername", "Admin");
-            b.FillInput("#txtPassword", "P@ssw0r");
+            b.FillInput("#txtPassword", "P@ssw0rd");
             b.ElementClick("#btn");
             var p2 = await b.WaitDocumentLoad();
 
             var username = await b.WaitSelector(".user");
-            Assert.AreEqual("Admin", username.First().InnerHTML);
+            Assert.AreEqual("Admin", username.Skip(1).First().InnerHTML.Trim());
 
         }
             
