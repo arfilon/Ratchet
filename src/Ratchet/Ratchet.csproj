@@ -5,7 +5,7 @@
     <RootNamespace>Arfilon.Ratchet</RootNamespace>
     <AssemblyName>Arfilon.Ratchet</AssemblyName>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>0.0.2</Version>
+    <Version>0.0.4</Version>
     <PackageProjectUrl>https://github.com/arfilon/Ratchet</PackageProjectUrl>
   </PropertyGroup>
 

@@ -18,8 +18,10 @@ namespace UnitTest
         public async Task Login()
         {
 
-            var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>();
-            var p = await b.OpenUrl("http://localhost:54374/Accounts/Account/Login?ReturnUrl=%2F");
+            var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>((w,c) => {
+                
+            });
+            var p = await b.OpenUrl("/");
             b.FillInput("#txtUsername", "Admin");
             b.FillInput("#txtPassword", "P@ssw0rd");
             b.ElementClick("#btn");

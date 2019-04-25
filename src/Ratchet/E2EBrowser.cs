@@ -10,6 +10,8 @@ using Knyaz.Optimus.Dom.Elements;
 using Knyaz.Optimus.Dom.Interfaces;
 using Knyaz.Optimus.ResourceProviders;
 using Knyaz.Optimus.Dom.Css;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 
 namespace Arfilon.Ratchet
 {
@@ -21,13 +23,19 @@ namespace Arfilon.Ratchet
 
         public event Action<object> OnConsoleLog;
 
-        public Ratchet()
+        public Ratchet(Action<WebHostBuilderContext, IConfigurationBuilder> configureDelegate,string baseAddress = null) : this(new Resorce<TSetup>(configureDelegate,baseAddress))
         {
-            resourceProvider = new Resorce<TSetup>();
+        }
+        private Ratchet(Resorce<TSetup> resourceProvider)
+        {
+            this.resourceProvider = resourceProvider;
             engine = new Knyaz.Optimus.Engine(resourceProvider);
             engine.Console.OnLog += Console_OnLog;
             engine.OnRequest += Engine_OnRequest;
             engine.DocumentChanged += Engine_DocumentChanged;
+        }
+        public Ratchet() : this(new Resorce<TSetup>())
+        {
         }
 
         private void Engine_DocumentChanged()
@@ -332,5 +340,6 @@ namespace Arfilon.Ratchet
         {
             engine.Dispose();
         }
+        
     }
 }
