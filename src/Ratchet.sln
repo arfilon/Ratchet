@@ -1,15 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.489
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28803.202
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ratchet", "Ratchet\Ratchet.csproj", "{17F68943-E8B6-40DA-8631-DB2F90449500}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test", "Test", "{77C40132-A67B-4E6E-A7D9-CD07694DC1ED}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebApplication", "Test\WebApplication\WebApplication.csproj", "{14FEDBFD-11A4-4B67-9482-ADEB28C516BF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebApplication", "Test\WebApplication\WebApplication.csproj", "{14FEDBFD-11A4-4B67-9482-ADEB28C516BF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTest", "Test\UnitTest\UnitTest.csproj", "{CBAC4E64-1E09-4077-8C80-71D3917FF806}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTest", "Test\UnitTest\UnitTest.csproj", "{CBAC4E64-1E09-4077-8C80-71D3917FF806}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

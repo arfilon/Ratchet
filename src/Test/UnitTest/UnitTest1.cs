@@ -21,14 +21,14 @@ namespace UnitTest
             var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>((w,c) => {
                 
             });
-            var p = await b.OpenUrl("/");
+            var p = await b.OpenUrl("/test/");
             b.FillInput("#txtUsername", "Admin");
             b.FillInput("#txtPassword", "P@ssw0rd");
             b.ElementClick("#btn");
             var p2 = await b.WaitDocumentLoad();
 
-            var username = await b.WaitSelector(".user");
-            Assert.AreEqual("Admin", username.Skip(1).First().InnerHTML.Trim());
+            var username = await b.WaitSelector("h2");
+            Assert.AreEqual("Edit", username.First().InnerHTML.Trim());
 
         }
             
