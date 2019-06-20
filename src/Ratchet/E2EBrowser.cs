@@ -23,7 +23,10 @@ namespace Arfilon.Ratchet
 
         public event Action<object> OnConsoleLog;
 
-        public Ratchet(Action<WebHostBuilderContext, IConfigurationBuilder> configureDelegate,string baseAddress = null) : this(new Resorce<TSetup>(configureDelegate,baseAddress))
+        public Ratchet(Action<WebHostBuilderContext, IConfigurationBuilder> configureDelegate, string baseAddress = null) : this(new Resorce<TSetup>(configureDelegate, baseAddress))
+        {
+        }
+        public Ratchet(Action<WebHostBuilder> configureDelegate, string baseAddress = null) : this(new Resorce<TSetup>(configureDelegate, baseAddress))
         {
         }
         private Ratchet(Resorce<TSetup> resourceProvider)

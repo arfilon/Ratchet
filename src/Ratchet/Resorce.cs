@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -8,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Knyaz.Optimus.ResourceProviders;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 
@@ -21,11 +24,13 @@ namespace Arfilon.Ratchet
         public string BaseAddress { get; }
 
         public Resorce(Action<WebHostBuilderContext, IConfigurationBuilder> configureDelegate, string baseAddress = null) : this(
-            new Microsoft.AspNetCore.TestHost.TestServer(new WebHostBuilder().ConfigureAppConfiguration(configureDelegate).UseStartup<TSetup>()).CreateClient(),
+            GetByContext(configureDelegate),
             baseAddress
             )
         {
         }
+
+
         public Resorce(Action<WebHostBuilder> configureDelegate, string baseAddress = null) : this(
             GetByConfig(configureDelegate),
             baseAddress
@@ -33,12 +38,28 @@ namespace Arfilon.Ratchet
         {
         }
 
+        private static HttpClient GetByContext(Action<WebHostBuilderContext, IConfigurationBuilder> configureDelegate)
+        {
+            return GetByConfig(b =>
+            {
+                b.ConfigureAppConfiguration(configureDelegate);
+            });
+        }
         private static HttpClient GetByConfig(Action<WebHostBuilder> configureDelegate)
         {
             var b = new WebHostBuilder();
             configureDelegate(b);
-            b.UseStartup<TSetup>();
-            return new Microsoft.AspNetCore.TestHost.TestServer(b).CreateClient();
+            b.UseContentRoot(
+            @"C:\Users\m.saleem\source\DinarakTFS\DNK.CORP.WEB\DNK.Protal-Mohammad\UI\DNK.Protal")
+                .UseEnvironment("Development")
+                .UseStartup<TSetup>();
+            var fc = new FeatureCollection();
+            var f = new HttpConnectionFeature();
+            f.RemoteIpAddress = new IPAddress(new byte[] { 172, 0, 0, 1 });
+            f.RemotePort = 80;
+            fc.Set(f);
+            var srv = new Microsoft.AspNetCore.TestHost.TestServer(b, fc);
+            return srv.CreateClient();
         }
 
         public Resorce(string baseAdress = null) : this(
@@ -50,7 +71,7 @@ namespace Arfilon.Ratchet
         private Resorce(HttpClient client, string baseAddress = null)
         {
             this.client = client;
-          
+
             cookies = new System.Net.CookieContainer();
             if (!string.IsNullOrWhiteSpace(baseAddress))
                 client.BaseAddress = new Uri(baseAddress);
@@ -85,16 +106,52 @@ namespace Arfilon.Ratchet
 
             HttpClient httpClient = null;
             if (request.Url.OriginalString.StartsWith(BaseAddress))
-               httpClient = client;
+                httpClient = client;
             else
                 httpClient = new HttpClient();
 
             HttpResponseMessage resp = await httpClient.SendAsync(m);
 
+
+
+
             foreach (var k in resp.Headers.Where(t => t.Key.ToLower() == "set-cookie").SelectMany(t => t.Value))
             {
                 cookies.SetCookies(request.Url, k);
             }
+
+
+
+
+            var statusCode = (int)resp.StatusCode;
+
+            // We want to handle redirects ourselves so that we can determine the final redirect Location (via header)
+            if (statusCode >= 300 && statusCode <= 399)
+            {
+                var redirectString = resp.Headers.GetValues("Location").FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(redirectString))
+                {
+                    redirectString = redirectString.Replace(",localhost/", "/");
+                    if (Uri.IsWellFormedUriString(redirectString, UriKind.RelativeOrAbsolute))
+                    {
+
+                        var redirectUri = new Uri(new Uri(BaseAddress), redirectString);
+                        if (!redirectUri.IsAbsoluteUri)
+                        {
+                            redirectUri = new Uri(m.RequestUri.GetLeftPart(UriPartial.Authority) + redirectUri);
+                        }
+                        return await SendRequestAsync(new Request("GET", redirectUri));
+                    }
+
+                }
+                throw new Exception($"Invalid Redirect path ({redirectString})");
+            }
+
+
+
+
+
+
             var data = await resp.Content.ReadAsByteArrayAsync();
             var sr = new StreamReader(new MemoryStream(data));
             var text = await sr.ReadToEndAsync();
@@ -105,7 +162,6 @@ namespace Arfilon.Ratchet
             return new TestResorce(resp.Content.Headers.ContentType?.MediaType ?? "text/html", new MemoryStream(data));
         }
     }
-
     class TestResorce : IResource
     {
         private string mediaType;
