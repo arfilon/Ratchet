@@ -5,12 +5,12 @@
     <RootNamespace>Arfilon.Ratchet</RootNamespace>
     <AssemblyName>Arfilon.Ratchet</AssemblyName>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>0.0.4</Version>
+    <Version>0.0.6</Version>
     <PackageProjectUrl>https://github.com/arfilon/Ratchet</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Knyaz.Optimus" Version="2.2.2" />
+    <PackageReference Include="Knyaz.Optimus" Version="2.2.3" />
     <PackageReference Include="Microsoft.AspNetCore.CookiePolicy" Version="2.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics" Version="2.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc" Version="2.1.1" />

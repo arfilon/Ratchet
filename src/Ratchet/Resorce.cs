@@ -49,10 +49,7 @@ namespace Arfilon.Ratchet
         {
             var b = new WebHostBuilder();
             configureDelegate(b);
-            b.UseContentRoot(
-            @"C:\Users\m.saleem\source\DinarakTFS\DNK.CORP.WEB\DNK.Protal-Mohammad\UI\DNK.Protal")
-                .UseEnvironment("Development")
-                .UseStartup<TSetup>();
+            b.UseStartup<TSetup>();
             var fc = new FeatureCollection();
             var f = new HttpConnectionFeature();
             f.RemoteIpAddress = new IPAddress(new byte[] { 172, 0, 0, 1 });
