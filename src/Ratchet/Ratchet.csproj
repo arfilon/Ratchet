@@ -2,19 +2,28 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
     <RootNamespace>Arfilon.Ratchet</RootNamespace>
     <AssemblyName>Arfilon.Ratchet</AssemblyName>
+
+    <!-- Package Information -->
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Version>1.0.0</Version>
-    <PackageProjectUrl>https://github.com/arfilon/Ratchet</PackageProjectUrl>
     <Authors>Arfilon</Authors>
-    <Description>Ratchet - End-to-End browser testing library for ASP.NET Core applications</Description>
+    <Company>Arfilon</Company>
+    <Product>Ratchet</Product>
+    <Description>A lightweight browser automation library for ASP.NET Core testing built on top of Knyaz.Optimus</Description>
+    <PackageProjectUrl>https://github.com/arfilon/Ratchet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/arfilon/Ratchet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageTags>testing;e2e;aspnetcore;browser</PackageTags>
+    <PackageTags>testing;browser;automation;aspnetcore;e2e</PackageTags>
+
+    <!-- Build Settings -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
