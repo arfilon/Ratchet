@@ -1,7 +1,7 @@
 # Ratchet
 
 
-End to end test For asp.Net Core 2 in one Process without web-server (Like IIS or Kestrel) or browser (like chrome or IE).
+End-to-end testing framework for ASP.NET Core applications (.NET 8) in one process without web-server (like IIS or Kestrel) or browser (like Chrome or IE).
 
 ## c# Sample
 
