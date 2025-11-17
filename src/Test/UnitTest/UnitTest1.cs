@@ -1,58 +1,54 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+#nullable disable
 using Arfilon.Ratchet;
 using Knyaz.Optimus;
 using Knyaz.Optimus.ResourceProviders;
 using Knyaz.Optimus.TestingTools;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace UnitTest
+namespace UnitTest;
+
+[TestClass]
+public class UnitTest1
 {
-
-    [TestClass]
-    public class UnitTest1
+    public TestContext TestContext { get; set; }
+    [TestMethod]
+    public async Task Login()
     {
-        public TestContext TestContext { get; set; }
-        [TestMethod]
-        public async Task Login()
-        {
 
-            var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>((w,c) => {
-                
-            });
-            var p = await b.OpenUrl("/test/");
-            b.FillInput("#txtUsername", "Admin");
-            b.FillInput("#txtPassword", "P@ssw0rd");
-            b.ElementClick("#btn");
-            var p2 = await b.WaitDocumentLoad();
+        var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>((w,c) => {
 
-            var username = await b.WaitSelector("h2");
-            Assert.AreEqual("Edit", username.First().InnerHTML.Trim());
+        });
+        var p = await b.OpenUrl("/test/");
+        b.FillInput("#txtUsername", "Admin");
+        b.FillInput("#txtPassword", "P@ssw0rd");
+        b.ElementClick("#btn");
+        var p2 = await b.WaitDocumentLoad();
 
-        }
-            
-            
-            
-            [TestMethod]
-        public async Task Foo()
-        {
-            var browser = new Ratchet<WebApplication.Startup>();
-
-            await browser.OpenUrl("/home/About");
-
-            var Document = await browser.WaitDocumentLoad();
-
-            var t = Document.TextContent;
-            var c = browser.WaitNextConsoleLog();
-            browser.ExecuteJavaScript("console.log('Hello World');");
-
-            TestContext.WriteLine("con: " + await c);
-
-            // TestContext Output : Hello World
-        }
-
-
+        var username = await b.WaitSelector("h2");
+        Assert.AreEqual("Edit", username.First().InnerHTML.Trim());
 
     }
+
+
+
+        [TestMethod]
+    public async Task Foo()
+    {
+        var browser = new Ratchet<WebApplication.Startup>();
+
+        await browser.OpenUrl("/home/About");
+
+        var Document = await browser.WaitDocumentLoad();
+
+        var t = Document.TextContent;
+        var c = browser.WaitNextConsoleLog();
+        browser.ExecuteJavaScript("console.log('Hello World');");
+
+        TestContext.WriteLine("con: " + await c);
+
+        // TestContext Output : Hello World
+    }
+
+
+
 }
