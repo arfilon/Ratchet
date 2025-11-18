@@ -1,4 +1,6 @@
 #nullable disable
+using System.Net.Http;
+using System.Threading;
 using Microsoft.Playwright;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -37,7 +39,7 @@ public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : clas
             _baseUrl = baseAddress;
     }
 
-    public Ratchet(Action<WebHostBuilder> configureDelegate, string baseAddress = null)
+    public Ratchet(Action<IWebHostBuilder> configureDelegate, string baseAddress = null)
     {
         _factory = CreateFactory(configureDelegate);
         _testHostClient = _factory.CreateClient();
@@ -53,7 +55,7 @@ public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : clas
             _baseUrl = baseAddress;
     }
 
-    private WebApplicationFactory<TSetup> CreateFactory(Action<WebHostBuilder> configure)
+    private WebApplicationFactory<TSetup> CreateFactory(Action<IWebHostBuilder> configure)
     {
         return new WebApplicationFactory<TSetup>().WithWebHostBuilder(configure);
     }
