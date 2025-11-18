@@ -88,7 +88,7 @@ public class PlaywrightTests
 
         // Setup dialog handler BEFORE triggering the dialog
         string? dialogMessage = null;
-        DialogType? dialogType = null;
+        string? dialogType = null;
 
         _page.Dialog += async (_, dialog) =>
         {
@@ -111,7 +111,7 @@ public class PlaywrightTests
         }");
 
         // Verify dialog was shown and accepted
-        Assert.AreEqual(DialogType.Confirm, dialogType);
+        Assert.AreEqual("confirm", dialogType);
         Assert.AreEqual("Are you sure?", dialogMessage);
 
         var confirmResult = await _page.GetAttributeAsync("body", "data-confirm-result");
