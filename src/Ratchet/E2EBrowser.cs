@@ -18,7 +18,7 @@ public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : clas
 
     private readonly WebApplicationFactory<TSetup> _factory;
     private readonly HttpClient _testHostClient;
-    private readonly string _baseUrl = "http://localhost";
+    private string _baseUrl = "http://localhost";
 
     private IPlaywright _playwright;
     private IBrowser _browser;
@@ -35,24 +35,27 @@ public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : clas
     {
         _factory = CreateFactory(builder => builder.ConfigureAppConfiguration(configureDelegate));
         _testHostClient = _factory.CreateClient();
-        if (!string.IsNullOrWhiteSpace(baseAddress))
-            _baseUrl = baseAddress;
+        _baseUrl = string.IsNullOrWhiteSpace(baseAddress)
+            ? _testHostClient.BaseAddress?.ToString().TrimEnd('/') ?? "http://localhost"
+            : baseAddress.TrimEnd('/');
     }
 
     public Ratchet(Action<IWebHostBuilder> configureDelegate, string baseAddress = null)
     {
         _factory = CreateFactory(configureDelegate);
         _testHostClient = _factory.CreateClient();
-        if (!string.IsNullOrWhiteSpace(baseAddress))
-            _baseUrl = baseAddress;
+        _baseUrl = string.IsNullOrWhiteSpace(baseAddress)
+            ? _testHostClient.BaseAddress?.ToString().TrimEnd('/') ?? "http://localhost"
+            : baseAddress.TrimEnd('/');
     }
 
     public Ratchet(string baseAddress = null)
     {
         _factory = new WebApplicationFactory<TSetup>();
         _testHostClient = _factory.CreateClient();
-        if (!string.IsNullOrWhiteSpace(baseAddress))
-            _baseUrl = baseAddress;
+        _baseUrl = string.IsNullOrWhiteSpace(baseAddress)
+            ? _testHostClient.BaseAddress?.ToString().TrimEnd('/') ?? "http://localhost"
+            : baseAddress.TrimEnd('/');
     }
 
     private WebApplicationFactory<TSetup> CreateFactory(Action<IWebHostBuilder> configure)
@@ -95,8 +98,10 @@ public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : clas
             var request = route.Request;
             var url = request.Url;
 
-            // Only intercept our app URLs
-            if (!url.StartsWith(_baseUrl))
+            // Only intercept localhost URLs (our in-memory TestHost)
+            // This handles both http://localhost and http://localhost:port patterns
+            if (!url.StartsWith("http://localhost", StringComparison.OrdinalIgnoreCase) &&
+                !url.StartsWith("https://localhost", StringComparison.OrdinalIgnoreCase))
             {
                 await route.ContinueAsync();
                 return;
@@ -156,12 +161,37 @@ public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : clas
     {
         await EnsureInitializedAsync();
 
-        if (!Uri.TryCreate(path, UriKind.Absolute, out _))
+        string fullUrl;
+        // Check if path is an HTTP/HTTPS URL
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
         {
-            path = new Uri(new Uri(_baseUrl), path).AbsoluteUri;
+            // Path is already an absolute HTTP URL
+            fullUrl = path;
+        }
+        else
+        {
+            // Construct full URL from base + relative path
+            // Note: Even though TestServer is in-memory, we need a valid URL format for Playwright
+            // The route interception will catch this and forward to TestHost
+            var baseUri = _baseUrl;
+
+            // Ensure proper URI format
+            if (!baseUri.Contains("://"))
+                baseUri = $"http://{baseUri}";
+
+            // Add port if localhost without port (TestServer case)
+            if (baseUri == "http://localhost" || baseUri == "http://localhost/")
+                baseUri = "http://localhost:5000"; // Use a dummy port for URL construction
+
+            if (!baseUri.EndsWith("/"))
+                baseUri += "/";
+
+            var relativePath = path.TrimStart('/');
+            fullUrl = new Uri(new Uri(baseUri), relativePath).AbsoluteUri;
         }
 
-        await _page.GotoAsync(path);
+        await _page.GotoAsync(fullUrl);
         await _page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
 
         return new PlaywrightDocument(_page);
