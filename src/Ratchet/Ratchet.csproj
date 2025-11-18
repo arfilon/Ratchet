@@ -14,7 +14,7 @@
     <Authors>Arfilon</Authors>
     <Company>Arfilon</Company>
     <Product>Ratchet</Product>
-    <Description>A lightweight browser automation library for ASP.NET Core testing built on top of Knyaz.Optimus</Description>
+    <Description>A lightweight browser automation library for ASP.NET Core testing built on top of Playwright</Description>
     <PackageProjectUrl>https://github.com/arfilon/Ratchet</PackageProjectUrl>
     <RepositoryUrl>https://github.com/arfilon/Ratchet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -31,8 +31,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Knyaz.Optimus" Version="3.0.1" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.49.0" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="8.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
   </ItemGroup>
 
 </Project>

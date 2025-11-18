@@ -1,8 +1,5 @@
 #nullable disable
 using Arfilon.Ratchet;
-using Knyaz.Optimus;
-using Knyaz.Optimus.ResourceProviders;
-using Knyaz.Optimus.TestingTools;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace UnitTest;
@@ -11,13 +8,12 @@ namespace UnitTest;
 public class UnitTest1
 {
     public TestContext TestContext { get; set; }
+
     [TestMethod]
     public async Task Login()
     {
+        var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>((w, c) => { });
 
-        var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>((w,c) => {
-
-        });
         var p = await b.OpenUrl("/test/");
         b.FillInput("#txtUsername", "Admin");
         b.FillInput("#txtPassword", "P@ssw0rd");
@@ -25,13 +21,15 @@ public class UnitTest1
         var p2 = await b.WaitDocumentLoad();
 
         var username = await b.WaitSelector("h2");
-        Assert.AreEqual("Edit", username.First().InnerHTML.Trim());
+        var firstElement = username.First();
+        var innerHTML = await firstElement.InnerHTMLAsync();
 
+        Assert.AreEqual("Edit", innerHTML.Trim());
+
+        await b.DisposeAsync();
     }
 
-
-
-        [TestMethod]
+    [TestMethod]
     public async Task Foo()
     {
         var browser = new Ratchet<WebApplication.Startup>();
@@ -47,8 +45,7 @@ public class UnitTest1
         TestContext.WriteLine("con: " + await c);
 
         // TestContext Output : Hello World
+
+        await browser.DisposeAsync();
     }
-
-
-
 }

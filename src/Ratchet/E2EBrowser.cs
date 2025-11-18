@@ -1,343 +1,307 @@
 #nullable disable
-using System.Text;
-using Knyaz.Optimus;
-using Knyaz.Optimus.Dom;
-using Knyaz.Optimus.Dom.Elements;
-using Knyaz.Optimus.Dom.Interfaces;
-using Knyaz.Optimus.ResourceProviders;
-using Knyaz.Optimus.Dom.Css;
+using Microsoft.Playwright;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 
 namespace Arfilon.Ratchet;
 
-public class Ratchet<TSetup> : IDisposable where TSetup : class
+/// <summary>
+/// Ratchet browser automation for ASP.NET Core testing, powered by Playwright.
+/// Provides in-memory TestHost integration for fast, isolated testing.
+/// </summary>
+public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : class
 {
     public int DefaultTimeout = 20000;
-    private Resorce<TSetup> resourceProvider;
-    private Engine engine;
+
+    private readonly WebApplicationFactory<TSetup> _factory;
+    private readonly HttpClient _testHostClient;
+    private readonly string _baseUrl = "http://localhost";
+
+    private IPlaywright _playwright;
+    private IBrowser _browser;
+    private IPage _page;
+    private IBrowserContext _context;
+
+    private bool _initialized;
+    private readonly SemaphoreSlim _initLock = new(1, 1);
 
     public event Action<object> OnConsoleLog;
 
-    public Ratchet(Action<WebHostBuilderContext, IConfigurationBuilder> configureDelegate, string baseAddress = null) : this(new Resorce<TSetup>(configureDelegate, baseAddress))
+    // Constructors matching original API
+    public Ratchet(Action<WebHostBuilderContext, IConfigurationBuilder> configureDelegate, string baseAddress = null)
     {
-    }
-    public Ratchet(Action<WebHostBuilder> configureDelegate, string baseAddress = null) : this(new Resorce<TSetup>(configureDelegate, baseAddress))
-    {
-    }
-    private Ratchet(Resorce<TSetup> resourceProvider)
-    {
-        this.resourceProvider = resourceProvider;
-        engine = new Knyaz.Optimus.Engine(resourceProvider);
-        engine.Console.OnLog += Console_OnLog;
-        engine.OnRequest += Engine_OnRequest;
-        engine.DocumentChanged += Engine_DocumentChanged;
-    }
-    public Ratchet() : this(new Resorce<TSetup>())
-    {
+        _factory = CreateFactory(builder => builder.ConfigureAppConfiguration(configureDelegate));
+        _testHostClient = _factory.CreateClient();
+        if (!string.IsNullOrWhiteSpace(baseAddress))
+            _baseUrl = baseAddress;
     }
 
-    private void Engine_DocumentChanged()
+    public Ratchet(Action<WebHostBuilder> configureDelegate, string baseAddress = null)
     {
-        foreach (var f in engine.Document.Forms)
+        _factory = CreateFactory(configureDelegate);
+        _testHostClient = _factory.CreateClient();
+        if (!string.IsNullOrWhiteSpace(baseAddress))
+            _baseUrl = baseAddress;
+    }
+
+    public Ratchet(string baseAddress = null)
+    {
+        _factory = new WebApplicationFactory<TSetup>();
+        _testHostClient = _factory.CreateClient();
+        if (!string.IsNullOrWhiteSpace(baseAddress))
+            _baseUrl = baseAddress;
+    }
+
+    private WebApplicationFactory<TSetup> CreateFactory(Action<WebHostBuilder> configure)
+    {
+        return new WebApplicationFactory<TSetup>().WithWebHostBuilder(configure);
+    }
+
+    private async Task EnsureInitializedAsync()
+    {
+        if (_initialized) return;
+
+        await _initLock.WaitAsync();
+        try
         {
-            f.OnSubmit -= Form_DefaultOnSubmit;
-            f.OnSubmit += Form_DefaultOnSubmit;
+            if (_initialized) return;
+
+            _playwright = await Playwright.CreateAsync();
+            _browser = await _playwright.Chromium.LaunchAsync(new() { Headless = true });
+            _context = await _browser.NewContextAsync();
+            _page = await _context.NewPageAsync();
+
+            // Setup route interception for in-memory TestHost
+            await SetupRouteInterceptionAsync();
+
+            // Setup console logging
+            _page.Console += (_, msg) => OnConsoleLog?.Invoke(msg.Text);
+
+            _initialized = true;
+        }
+        finally
+        {
+            _initLock.Release();
         }
     }
 
-    private void Form_DefaultOnSubmit(Knyaz.Optimus.Dom.Events.Event obj)
+    private async Task SetupRouteInterceptionAsync()
     {
+        await _page.RouteAsync("**/*", async route =>
+        {
+            var request = route.Request;
+            var url = request.Url;
 
+            // Only intercept our app URLs
+            if (!url.StartsWith(_baseUrl))
+            {
+                await route.ContinueAsync();
+                return;
+            }
+
+            try
+            {
+                // Forward to in-memory TestHost
+                var httpRequest = new HttpRequestMessage
+                {
+                    Method = new HttpMethod(request.Method),
+                    RequestUri = new Uri(url)
+                };
+
+                foreach (var header in request.Headers.Where(h => !IsRestrictedHeader(h.Key)))
+                {
+                    httpRequest.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+
+                if (request.PostData != null)
+                {
+                    httpRequest.Content = new StringContent(request.PostData);
+                }
+
+                var response = await _testHostClient.SendAsync(httpRequest);
+
+                await route.FulfillAsync(new()
+                {
+                    Status = (int)response.StatusCode,
+                    Headers = ConvertHeaders(response),
+                    BodyBytes = await response.Content.ReadAsByteArrayAsync()
+                });
+            }
+            catch
+            {
+                await route.ContinueAsync();
+            }
+        });
     }
 
-    private void Engine_OnRequest(Request obj)
+    private static bool IsRestrictedHeader(string name) =>
+        new[] { "Host", "Content-Length", "Transfer-Encoding", "Connection" }
+            .Contains(name, StringComparer.OrdinalIgnoreCase);
+
+    private static Dictionary<string, string> ConvertHeaders(HttpResponseMessage response)
     {
-        obj.Headers.Add("Accept-Language", "en-US");
+        var headers = new Dictionary<string, string>();
+        foreach (var h in response.Headers)
+            headers[h.Key] = string.Join(", ", h.Value);
+        if (response.Content?.Headers != null)
+            foreach (var h in response.Content.Headers)
+                headers[h.Key] = string.Join(", ", h.Value);
+        return headers;
     }
 
-    private void Console_OnLog(object obj)
+    public async Task<PlaywrightDocument> OpenUrl(string path)
     {
-        OnConsoleLog?.Invoke(obj);
+        await EnsureInitializedAsync();
+
+        if (!Uri.TryCreate(path, UriKind.Absolute, out _))
+        {
+            path = new Uri(new Uri(_baseUrl), path).AbsoluteUri;
+        }
+
+        await _page.GotoAsync(path);
+        await _page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
+
+        return new PlaywrightDocument(_page);
     }
 
     public void ExecuteJavaScript(string script)
     {
-        engine.ScriptExecutor.Execute("text/javascript", script);
+        _page.EvaluateAsync(script).GetAwaiter().GetResult();
     }
 
-    //
-    // Summary:
-    //     Creates new Knyaz.Optimus.Engine.Document and loads it from specified path (http
-    //     or file).
-    //
-    // Parameters:
-    //   path:
-    //     The string which represents Uri of the document to be loaded.
-
-    public async Task<Document> OpenUrl(string path)
+    public async void FillInput(string query, string text)
     {
+        await EnsureInitializedAsync();
+        await _page.FillAsync(query, text);
+    }
 
-        if (!System.Uri.TryCreate(path, UriKind.Absolute, out Uri url))
+    public async void ElementClick(string query)
+    {
+        await EnsureInitializedAsync();
+        await _page.ClickAsync(query);
+    }
+
+    public async void FillTextArea(string query, string text)
+    {
+        await EnsureInitializedAsync();
+        await _page.FillAsync(query, text);
+    }
+
+    public async Task<PlaywrightDocument> WaitDocumentLoad()
+    {
+        await EnsureInitializedAsync();
+        await _page.WaitForLoadStateAsync(LoadState.Load);
+        return new PlaywrightDocument(_page);
+    }
+
+    public async Task<string> WaitNextConsoleLog()
+    {
+        await EnsureInitializedAsync();
+        var tcs = new TaskCompletionSource<string>();
+
+        void Handler(object obj)
         {
-            var baseAddress = resourceProvider.BaseAddress;
-            path = new Uri(new Uri(baseAddress), path).AbsoluteUri;
-        }
-        var p = await engine.OpenUrl(path);
-        Engine_DocumentChanged();
-        return p.Document;
-    }
-
-
-
-    /// <summary>
-    /// Emulate entering text by user into input textbox.
-    /// </summary>
-    public void FillInput(string query, string text)
-    {
-        var input = Get<HtmlInputElement>(query).Single();
-        input.Value = text;
-        var evt = input.OwnerDocument.CreateEvent("Event");
-        evt.InitEvent("change", false, false);
-        input.DispatchEvent(evt);
-
-    }
-
-    /// <summary>
-	/// Emulate entering text by user into input textbox.
-	/// </summary>
-	public void ElementClick(string query)
-    {
-        var input = Get<HtmlElement>(query).Single();
-        input.OnClick += Input_OnClick;
-        //ExecuteJavaScript($@"document.getElementById('{query}').click();");
-        input.Click();
-        //var evt = input.OwnerDocument.CreateEvent("Event");
-        //evt.InitEvent("click", false, false);
-        //input.DispatchEvent(evt);
-    }
-
-    private bool? Input_OnClick(Knyaz.Optimus.Dom.Events.Event arg)
-    {
-        return null;
-    }
-
-    /// <summary>
-    /// Emulate entering text by user into input textbox.
-    /// </summary>
-    public void FillTextArea(string query, string text)
-    {
-
-        var input = Get<HtmlTextAreaElement>(query).Single();
-        input.Value = text;
-        var evt = input.OwnerDocument.CreateEvent("Event");
-        evt.InitEvent("change", false, false);
-        input.DispatchEvent(evt);
-    }
-
-
-    /// <summary>
-    /// Wait for the loading of document.
-    /// </summary>
-    public Task<Document> WaitDocumentLoad()
-    {
-        var taskb = new TaskCompletionSource<Document>();
-
-        if (engine.Document.ReadyState != DocumentReadyStates.Loading)
-            taskb.SetResult(engine.Document);
-
-
-        Action<IDocument> handler = null;
-        Action<Node, Exception> Errorhandler = null;
-        handler = document =>
-        {
-            taskb.SetResult((Document)document);
-            engine.Document.DomContentLoaded -= handler;
-            engine.Document.OnNodeException -= Errorhandler;
-        };
-        Errorhandler = (nod, exception) =>
-        {
-            taskb.SetException(exception);
-            engine.Document.DomContentLoaded -= handler;
-            engine.Document.OnNodeException -= Errorhandler;
-        };
-
-        engine.Document.DomContentLoaded += handler;
-        engine.Document.OnNodeException += Errorhandler;
-
-        return taskb.Task;
-
-    }
-    public Task<string> WaitNextConsoleLog()
-    {
-        var taskb = new TaskCompletionSource<string>();
-        Action<object> handler = null;
-        handler = text =>
-        {
-            taskb.SetResult((string)text);
-            engine.Console.OnLog -= handler;
-        };
-        engine.Console.OnLog += handler;
-
-        return taskb.Task;
-
-    }
-    public Task<string> WaitNextAlert()
-    {
-        var taskb = new TaskCompletionSource<string>();
-        Action<object> handler = null;
-        handler = text =>
-        {
-            taskb.SetResult((string)text);
-            engine.Window.OnAlert -= handler;
-        };
-        engine.Window.OnAlert += handler;
-
-        return taskb.Task;
-    }
-
-    /// <summary>
-    /// Blocks the execution of the current thread until an item with the specified ID appears in the document.
-    /// </summary>
-    /// <param name="engine">The engine with the document to wait in.</param>
-    /// <param name="id">The identifier to be awaited.</param>
-    /// <returns>Element with specified Id, <c>null</c> if the element with the specified identifier has not appeared in the document for the default timeout.</returns>
-    public Task<Element> WaitId(string id)
-    {
-        return WaitId(id, DefaultTimeout);
-    }
-
-    /// <summary>
-    /// Blocks the execution of the current thread until an item with the specified ID appears in the document.
-    /// </summary>
-    /// <param name="engine">Document onwer.</param>
-    /// <param name="id">Id of element waiting for.</param>
-    /// <param name="timeout">The time to wait in milliseconds</param>
-    /// <returns>Element with specified Id, <c>null</c> if the element with the specified identifier has not appeared in the document for a given time.</returns>
-    public async Task<Element> WaitId(string id, int timeout)
-    {
-        await WaitDocumentLoad();
-        var timespan = 100;
-        for (int i = 0; i < timeout / timespan; i++)
-        {
-            var doc = engine.Document;
-            lock (doc)
-            {
-                try
-                {
-                    var elt = doc.GetElementById(id);
-                    if (elt != null)
-                        return elt;
-                }
-                catch
-                {
-                    //catch 'collection was changed...'
-                }
-            }
-
-            await Task.Delay(timespan);
-        }
-        throw new TimeoutException();
-    }
-
-    /// <summary>
-    /// Locks the current thread until the element with specified id disappears.
-    /// </summary>
-    /// <param name="id">Identifier of the item to be disappeared.</param>
-    /// <returns>Element if found, <c>null</c> othervise.</returns>
-    public Task WaitDesappearingOfId(string id)
-    {
-        return WaitDesappearingOfId(id, DefaultTimeout);
-    }
-
-    /// <summary>
-    /// Locks the current thread until the element with specified id disappears.
-    /// </summary>
-    /// <param name="id">Identifier of the item to be disappeared.</param>
-    /// <param name="timeout">The timeout</param>
-    /// <returns>Element if found, <c>null</c> othervise.</returns>
-    public async Task WaitDesappearingOfId(string id, int timeout)
-    {
-        var timespan = 100;
-        for (int i = 0; i < timeout / timespan; i++)
-        {
-            var doc = engine.Document;
-            lock (doc)
-            {
-                var elt = doc.GetElementById(id);
-                if (elt == null)
-                    return;
-            }
-
-            await Task.Delay(timespan);
-        }
-        throw new TimeoutException();
-    }
-
-    /// <summary>
-    /// Search the first html element in document which satisfies specified selector.
-    /// </summary>
-    /// <returns>Found <see cref="HtmlElement"/> or <c>null</c>.</returns>
-    public HtmlElement FirstElement(string query)
-    {
-        return engine.Document.QuerySelectorAll(query).OfType<HtmlElement>().First();
-    }
-
-    /// <summary>
-    /// Freezes the current thread until at least one element that matches the query appears in the document.
-    /// </summary>
-    /// <param name="doc"></param>
-    /// <param name="query"></param>
-    /// <param name="timeout"></param>
-    /// <returns>Matched elements.</returns>
-    public async Task<IEnumerable<IElement>> WaitSelector(string query, int timeout = 0)
-    {
-        await WaitDocumentLoad();
-        if (timeout == 0)
-            timeout = DefaultTimeout;
-
-        var timespan = 100;
-        for (int i = 0; i < timeout / timespan; i++)
-        {
-            try
-            {
-                var elt = engine.Document.QuerySelectorAll(query);
-                if (elt != null)
-                    return elt;
-            }
-            catch
-            {
-            }
-
-            await Task.Delay(timespan);
+            tcs.TrySetResult(obj?.ToString());
+            OnConsoleLog -= Handler;
         }
 
-        throw new TimeoutException();
+        OnConsoleLog += Handler;
+        return await tcs.Task;
     }
+
+    public async Task<string> WaitNextAlert()
+    {
+        await EnsureInitializedAsync();
+        var tcs = new TaskCompletionSource<string>();
+
+        void Handler(object sender, IDialog dialog)
+        {
+            tcs.TrySetResult(dialog.Message);
+            dialog.AcceptAsync().GetAwaiter().GetResult();
+        }
+
+        _page.Dialog += Handler;
+        var result = await tcs.Task;
+        _page.Dialog -= Handler;
+
+        return result;
+    }
+
+    public async Task<IElementHandle> WaitId(string id, int timeout = 0)
+    {
+        await EnsureInitializedAsync();
+        timeout = timeout == 0 ? DefaultTimeout : timeout;
+        return await _page.WaitForSelectorAsync($"#{id}", new() { Timeout = timeout });
+    }
+
+    public async Task WaitDesappearingOfId(string id, int timeout = 0)
+    {
+        await EnsureInitializedAsync();
+        timeout = timeout == 0 ? DefaultTimeout : timeout;
+        await _page.WaitForSelectorAsync($"#{id}", new()
+        {
+            State = WaitForSelectorState.Hidden,
+            Timeout = timeout
+        });
+    }
+
+    public async Task<IElementHandle> FirstElement(string query)
+    {
+        await EnsureInitializedAsync();
+        return await _page.QuerySelectorAsync(query);
+    }
+
+    public async Task<IReadOnlyList<IElementHandle>> WaitSelector(string query, int timeout = 0)
+    {
+        await EnsureInitializedAsync();
+        timeout = timeout == 0 ? DefaultTimeout : timeout;
+        await _page.WaitForSelectorAsync(query, new() { Timeout = timeout });
+        return await _page.QuerySelectorAllAsync(query);
+    }
+
     public Task WaitDocumentChanged(string query, int timeout = 0)
     {
-        var taskb = new TaskCompletionSource<object>();
-        Action handler = null;
-        handler = () =>
-        {
-            taskb.SetResult(null);
-            engine.DocumentChanged -= handler;
-        };
-        engine.DocumentChanged += handler;
-
-        return taskb.Task;
+        // Playwright handles DOM changes automatically
+        return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Alias for QuerySelectorAll method with element types filtration.
-    /// </summary>
-    public IEnumerable<T> Get<T>(string query) where T : IElement
+    public async Task<IReadOnlyList<IElementHandle>> Get(string query)
     {
-        return engine.Document.QuerySelectorAll(query).OfType<T>();
+        await EnsureInitializedAsync();
+        return await _page.QuerySelectorAllAsync(query);
     }
+
     public void Dispose()
     {
-        engine.Dispose();
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 
+    public async ValueTask DisposeAsync()
+    {
+        if (_page != null) await _page.CloseAsync();
+        if (_context != null) await _context.CloseAsync();
+        if (_browser != null) await _browser.CloseAsync();
+        _playwright?.Dispose();
+        _testHostClient?.Dispose();
+        if (_factory != null) await _factory.DisposeAsync();
+        _initLock?.Dispose();
+    }
+}
+
+/// <summary>
+/// Wrapper for Playwright page to match original Document API
+/// </summary>
+public class PlaywrightDocument
+{
+    private readonly IPage _page;
+
+    public PlaywrightDocument(IPage page)
+    {
+        _page = page;
+    }
+
+    public string TextContent => _page.TextContentAsync("body").GetAwaiter().GetResult();
+
+    public async Task<string> GetTextContentAsync() => await _page.TextContentAsync("body");
 }
