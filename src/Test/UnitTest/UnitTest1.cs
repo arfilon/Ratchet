@@ -20,6 +20,10 @@ public class UnitTest1
         b.ElementClick("#btn");
         var p2 = await b.WaitDocumentLoad();
 
+        // Take screenshot before assertion for debugging
+        var screenshotPath = await b.TakeScreenshot("login-test-debug.png");
+        TestContext.WriteLine($"Screenshot saved to: {screenshotPath}");
+
         var username = await b.WaitSelector("h2");
         var firstElement = username.First();
         var innerHTML = await firstElement.InnerHTMLAsync();

@@ -1,4 +1,5 @@
 #nullable disable
+using System.IO;
 using System.Net.Http;
 using System.Threading;
 using Microsoft.Playwright;
@@ -302,6 +303,50 @@ public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : clas
     {
         await EnsureInitializedAsync();
         return await _page.QuerySelectorAllAsync(query);
+    }
+
+    /// <summary>
+    /// Takes a screenshot of the current page and saves it to the specified path.
+    /// Useful for debugging failing tests.
+    /// </summary>
+    /// <param name="path">
+    /// Optional file path where the screenshot will be saved.
+    /// If not provided, generates a timestamped filename in the current directory.
+    /// Supported formats: .png (default), .jpg, .jpeg
+    /// </param>
+    /// <param name="fullPage">If true, captures the entire scrollable page. Default is false (viewport only).</param>
+    /// <returns>The full path where the screenshot was saved.</returns>
+    public async Task<string> TakeScreenshot(string path = null, bool fullPage = false)
+    {
+        await EnsureInitializedAsync();
+
+        // Generate default filename if not provided
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
+            path = $"screenshot_{timestamp}.png";
+        }
+
+        // Ensure absolute path
+        if (!Path.IsPathRooted(path))
+        {
+            path = Path.Combine(Directory.GetCurrentDirectory(), path);
+        }
+
+        // Create directory if it doesn't exist
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        await _page.ScreenshotAsync(new()
+        {
+            Path = path,
+            FullPage = fullPage
+        });
+
+        return path;
     }
 
     public void Dispose()
