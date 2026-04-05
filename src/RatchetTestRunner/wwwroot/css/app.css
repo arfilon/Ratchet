@@ -1,0 +1,213 @@
+@import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
+
+html, body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+code {
+    color: #d63384;
+}
+
+.btn:focus, .btn:active {
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(0, 120, 215, 0.5);
+}
+
+.sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    top: 0;
+    z-index: 100;
+    background-color: #f7f7f7;
+    width: 250px;
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid #d0d0d0;
+}
+
+main {
+    flex: 1;
+    margin-left: 250px;
+}
+
+.top-row {
+    background-color: #f7f7f7;
+    border-bottom: 1px solid #d0d0d0;
+    padding: 0.5rem 1rem !important;
+    margin-left: -250px;
+    margin-bottom: 1rem;
+}
+
+.top-row h1 {
+    margin: 0;
+    padding: 0.5rem 0;
+    font-size: 1.25rem;
+}
+
+    .top-row a, .top-row .btn-link {
+        white-space: nowrap;
+        margin-left: 1.5rem;
+    }
+
+.content {
+    padding-top: 1.1rem;
+}
+
+.navbar-toggler {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.valid.modified:not([type=checkbox]) {
+    outline: 1px solid #26b050;
+}
+
+.invalid {
+    outline: 1px solid red;
+}
+
+.validation-message {
+    color: red;
+}
+
+@media (max-width: 767.98px) {
+    .navbar-toggler {
+        display: block;
+    }
+
+    main {
+        margin-left: 0;
+    }
+
+    .sidebar {
+        display: none;
+    }
+
+    .top-row {
+        margin-left: 0;
+    }
+}
+
+.test-selector {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+.assembly-group {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-left: 3px solid #0078d4;
+}
+
+.class-group {
+    margin-top: 8px;
+    padding: 8px;
+    background-color: white;
+    border-radius: 3px;
+}
+
+.console-output {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.console-message {
+    margin: 2px 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.test-results {
+    padding: 10px;
+}
+
+.exception-details {
+    padding: 10px;
+    background-color: #fff5f5;
+    border-left: 3px solid #d32f2f;
+    margin-bottom: 10px;
+}
+
+.exception-details pre {
+    background-color: white;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.loading-progress {
+    position: absolute;
+    width: 40vw;
+    height: 40vw;
+    left: 30vw;
+    top: 30vh;
+    stroke: #0078d4;
+    stroke-width: 4;
+    stroke-linecap: round;
+    fill: none;
+    animation: progress-animation 2s infinite linear;
+}
+
+@keyframes progress-animation {
+    0% {
+        stroke-dasharray: 0, 251;
+    }
+
+    50% {
+        stroke-dasharray: 141, 251;
+    }
+
+    100% {
+        stroke-dasharray: 251, 251;
+    }
+}
+
+.loading-progress-text {
+    position: absolute;
+    text-align: center;
+    left: 0;
+    top: 40vh;
+    width: 100vw;
+    font-size: 16px;
+}
+
+    .loading-progress-text p {
+        color: #0078d4;
+        margin: 0;
+    }
+
+#blazor-error-ui {
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    right: 0;
+    z-index: 1000;
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }
+
+.bunit-wrapper {
+    margin: 1rem 0;
+    padding: 1rem;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+}

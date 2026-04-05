@@ -10,3 +10,7 @@
 /src/Test/WebApplication/bin
 /src/Test/WebApplication/obj
 /.vs
+
+# Local NuGet packages and config
+.nuget-local/
+NuGet.Config

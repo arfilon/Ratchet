@@ -1,58 +1,55 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+#nullable disable
 using Arfilon.Ratchet;
-using Knyaz.Optimus;
-using Knyaz.Optimus.ResourceProviders;
-using Knyaz.Optimus.TestingTools;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace UnitTest
+namespace UnitTest;
+
+[TestClass]
+public class UnitTest1
 {
+    public TestContext TestContext { get; set; }
 
-    [TestClass]
-    public class UnitTest1
+    [TestMethod]
+    public async Task Login()
     {
-        public TestContext TestContext { get; set; }
-        [TestMethod]
-        public async Task Login()
-        {
+        var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>((w, c) => { });
 
-            var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>((w,c) => {
-                
-            });
-            var p = await b.OpenUrl("/test/");
-            b.FillInput("#txtUsername", "Admin");
-            b.FillInput("#txtPassword", "P@ssw0rd");
-            b.ElementClick("#btn");
-            var p2 = await b.WaitDocumentLoad();
+        var p = await b.OpenUrl("/test/");
+        b.FillInput("#txtUsername", "Admin");
+        b.FillInput("#txtPassword", "P@ssw0rd");
+        b.ElementClick("#btn");
+        var p2 = await b.WaitDocumentLoad();
 
-            var username = await b.WaitSelector("h2");
-            Assert.AreEqual("Edit", username.First().InnerHTML.Trim());
+        // Take screenshot before assertion for debugging
+        var screenshotPath = await b.TakeScreenshot("login-test-debug.png");
+        TestContext.WriteLine($"Screenshot saved to: {screenshotPath}");
 
-        }
-            
-            
-            
-            [TestMethod]
-        public async Task Foo()
-        {
-            var browser = new Ratchet<WebApplication.Startup>();
+        var username = await b.WaitSelector("h2");
+        var firstElement = username.First();
+        var innerHTML = await firstElement.InnerHTMLAsync();
 
-            await browser.OpenUrl("/home/About");
+        Assert.AreEqual("Edit", innerHTML.Trim());
 
-            var Document = await browser.WaitDocumentLoad();
+        await b.DisposeAsync();
+    }
 
-            var t = Document.TextContent;
-            var c = browser.WaitNextConsoleLog();
-            browser.ExecuteJavaScript("console.log('Hello World');");
+    [TestMethod]
+    public async Task Foo()
+    {
+        var browser = new Ratchet<WebApplication.Startup>();
 
-            TestContext.WriteLine("con: " + await c);
+        await browser.OpenUrl("/home/About");
 
-            // TestContext Output : Hello World
-        }
+        var Document = await browser.WaitDocumentLoad();
 
+        var t = Document.TextContent;
+        var c = browser.WaitNextConsoleLog();
+        browser.ExecuteJavaScript("console.log('Hello World');");
 
+        TestContext.WriteLine("con: " + await c);
 
+        // TestContext Output : Hello World
+
+        await browser.DisposeAsync();
     }
 }

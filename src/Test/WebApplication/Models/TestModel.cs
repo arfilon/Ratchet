@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+#nullable disable
 
-namespace WebApplication.Models
+namespace WebApplication.Models;
+
+public class TestModel
 {
-    public class TestModel
-    {
-    }
 }
