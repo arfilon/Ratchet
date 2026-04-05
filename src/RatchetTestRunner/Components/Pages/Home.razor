@@ -65,7 +65,7 @@
                     @if (selectedTest != null)
                     {
                         <div class="alert alert-info">
-                            Selected: <strong>@selectedTest.ParentClass?.Name.@selectedTest.Name</strong>
+                            Selected: <strong>@($"{selectedTest.ParentClass?.Name}.{selectedTest.Name}")</strong>
                             <button class="btn btn-sm btn-success float-end" @onclick="ExecuteSelectedTest" disabled="@isExecuting">
                                 @if (isExecuting)
                                 {
@@ -166,11 +166,22 @@
     {
         try
         {
-            // Get assembly paths from configuration
-            var assemblyPaths = new[]
-            {
-                "/home/user/Ratchet/src/Test/UnitTest/bin/Debug/net8.0/UnitTest.dll"
-            };
+            // Build assembly path - adjust based on where the app is running
+            var binPath = Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "..",
+                "..",
+                "Test",
+                "UnitTest",
+                "bin",
+                "Debug",
+                "net8.0",
+                "UnitTest.dll"
+            );
+
+            var assemblyPaths = File.Exists(binPath)
+                ? new[] { binPath }
+                : new[] { "/home/user/Ratchet/src/Test/UnitTest/bin/Debug/net8.0/UnitTest.dll" };
 
             assemblies = await TestDiscoveryService.DiscoverAssembliesAsync(assemblyPaths);
         }
