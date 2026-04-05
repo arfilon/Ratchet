@@ -7,13 +7,13 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.0" />
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.0" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.AspNetCore.Components" Version="8.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="8.0.0" />
         <PackageReference Include="Castle.Core" Version="5.1.1" />
         <PackageReference Include="Microsoft.Playwright" Version="1.49.0" />
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
-        <PackageReference Include="System.Reflection" Version="4.3.0" />
     </ItemGroup>
 
     <ItemGroup>
