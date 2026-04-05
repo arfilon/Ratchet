@@ -5,6 +5,8 @@ VisualStudioVersion = 16.0.28803.202
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ratchet", "Ratchet\Ratchet.csproj", "{17F68943-E8B6-40DA-8631-DB2F90449500}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RatchetTestRunner", "RatchetTestRunner\RatchetTestRunner.csproj", "{F5E6D0F3-A234-4B5C-A67D-89E0A1B2C3D4}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test", "Test", "{77C40132-A67B-4E6E-A7D9-CD07694DC1ED}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebApplication", "Test\WebApplication\WebApplication.csproj", "{14FEDBFD-11A4-4B67-9482-ADEB28C516BF}"
@@ -21,6 +23,10 @@ Global
 		{17F68943-E8B6-40DA-8631-DB2F90449500}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{17F68943-E8B6-40DA-8631-DB2F90449500}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{17F68943-E8B6-40DA-8631-DB2F90449500}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5E6D0F3-A234-4B5C-A67D-89E0A1B2C3D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5E6D0F3-A234-4B5C-A67D-89E0A1B2C3D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5E6D0F3-A234-4B5C-A67D-89E0A1B2C3D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5E6D0F3-A234-4B5C-A67D-89E0A1B2C3D4}.Release|Any CPU.Build.0 = Release|Any CPU
 		{14FEDBFD-11A4-4B67-9482-ADEB28C516BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{14FEDBFD-11A4-4B67-9482-ADEB28C516BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{14FEDBFD-11A4-4B67-9482-ADEB28C516BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
