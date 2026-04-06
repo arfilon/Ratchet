@@ -69,28 +69,47 @@
 
         .dev-console-controls {
             display: flex !important;
-            gap: 8px !important;
+            gap: 4px !important;
             flex-shrink: 0;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
 
-        .dev-console-controls button {
+        .dev-console-controls button,
+        .dev-console-controls .filter-toggle {
             background: #404040 !important;
             border: 1px solid #555 !important;
             color: #d4d4d4 !important;
-            padding: 4px 12px !important;
+            padding: 4px 8px !important;
             cursor: pointer;
             font-size: 11px;
             border-radius: 2px;
             white-space: nowrap;
             font-family: inherit;
+            margin: 2px 1px;
         }
 
-        .dev-console-controls button:hover {
+        .dev-console-controls button:hover,
+        .dev-console-controls .filter-toggle:hover {
             background: #505050 !important;
         }
 
-        .dev-console-controls button:active {
+        .dev-console-controls button:active,
+        .dev-console-controls .filter-toggle:active {
             background: #606060 !important;
+        }
+
+        .dev-console-controls .filter-toggle.active {
+            background: #5a9955 !important;
+            border-color: #6a9955 !important;
+        }
+
+        .dev-console-filters {
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+            align-items: center;
         }
 
         .dev-console-content {
@@ -116,6 +135,11 @@
             border-left: 3px solid transparent;
             padding-left: 8px;
             line-height: 1.5;
+            display: block;
+        }
+
+        .console-log.hidden {
+            display: none;
         }
 
         .console-log.error {
@@ -212,6 +236,26 @@
         .console-expanded-content.show {
             display: block;
         }
+
+        .copy-feedback {
+            position: fixed;
+            bottom: 270px;
+            right: 20px;
+            background: #6a9955;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 12px;
+            animation: fadeInOut 2s ease-in-out;
+            z-index: 10001;
+        }
+
+        @@keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(10px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(10px); }
+        }
     </style>
 </head>
 
@@ -248,8 +292,17 @@
     <div class="dev-console-resizer" id="consoleResizer"></div>
     <div class="dev-console-panel" id="devConsole">
         <div class="dev-console-header" id="consoleHeader">
-            <h5>📋 Developer Console (Errors, Warnings, Stack Traces)</h5>
+            <h5>📋 Developer Console</h5>
             <div class="dev-console-controls">
+                <div class="dev-console-filters">
+                    <span style="font-size: 10px; color: #858585; margin-right: 4px;">Filter:</span>
+                    <button type="button" class="filter-toggle active" data-filter="error">❌ Error</button>
+                    <button type="button" class="filter-toggle active" data-filter="warn">⚠️ Warn</button>
+                    <button type="button" class="filter-toggle active" data-filter="info">ℹ️ Info</button>
+                    <button type="button" class="filter-toggle active" data-filter="debug">🔧 Debug</button>
+                    <button type="button" class="filter-toggle active" data-filter="log">📝 Log</button>
+                </div>
+                <button type="button" id="copyBtn" title="Copy all displayed logs to clipboard">📋 Copy</button>
                 <button type="button" id="clearBtn">🗑️ Clear</button>
                 <button type="button" id="toggleBtn">⬆️ Collapse</button>
             </div>
@@ -266,9 +319,11 @@
                 this.content = document.getElementById('consoleContent');
                 this.clearBtn = document.getElementById('clearBtn');
                 this.toggleBtn = document.getElementById('toggleBtn');
+                this.copyBtn = document.getElementById('copyBtn');
                 this.header = document.getElementById('consoleHeader');
                 this.resizer = document.getElementById('consoleResizer');
                 this.isCollapsed = false;
+                this.activeFilters = new Set(['error', 'warn', 'info', 'debug', 'log']);
 
                 this.setupEventListeners();
                 this.setupConsoleOverride();
@@ -285,6 +340,27 @@
                 this.toggleBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.toggle();
+                });
+
+                this.copyBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.copyLogs();
+                });
+
+                // Filter toggle buttons
+                document.querySelectorAll('.filter-toggle').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const filter = btn.dataset.filter;
+                        if (this.activeFilters.has(filter)) {
+                            this.activeFilters.delete(filter);
+                            btn.classList.remove('active');
+                        } else {
+                            this.activeFilters.add(filter);
+                            btn.classList.add('active');
+                        }
+                        this.render();
+                    });
                 });
 
                 // Resizer
@@ -412,6 +488,10 @@
             render() {
                 this.content.innerHTML = this.logs
                     .map((log, idx) => {
+                        if (!this.activeFilters.has(log.type)) {
+                            return '';
+                        }
+
                         const icon = this.getIcon(log.type);
                         const expandId = `expand-${log.id}`;
                         const contentId = `content-${log.id}`;
@@ -469,6 +549,31 @@
                 const div = document.createElement('div');
                 div.textContent = text;
                 return div.innerHTML;
+            }
+
+            copyLogs() {
+                const visibleLogs = this.logs.filter(log => this.activeFilters.has(log.type));
+                const text = visibleLogs.map(log => {
+                    let logText = `[${log.timestamp}] ${log.type.toUpperCase()}: ${log.messages.join('\n')}`;
+                    if (log.stackTrace) {
+                        logText += `\nStack Trace:\n${log.stackTrace}`;
+                    }
+                    return logText;
+                }).join('\n\n');
+
+                navigator.clipboard.writeText(text).then(() => {
+                    this.showCopyFeedback(visibleLogs.length);
+                }).catch(err => {
+                    console.error('Failed to copy logs:', err);
+                });
+            }
+
+            showCopyFeedback(count) {
+                const feedback = document.createElement('div');
+                feedback.className = 'copy-feedback';
+                feedback.textContent = `✅ Copied ${count} log(s) to clipboard`;
+                document.body.appendChild(feedback);
+                setTimeout(() => feedback.remove(), 2000);
             }
 
             clear() {
