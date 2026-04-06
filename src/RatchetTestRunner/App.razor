@@ -9,6 +9,210 @@
     <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
     <link href="RatchetTestRunner.styles.css" rel="stylesheet" />
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        #app {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 300px;
+        }
+
+        .dev-console-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-top: 2px solid #404040;
+            font-family: 'Courier New', 'Monaco', monospace;
+            font-size: 12px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            height: 250px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+        }
+
+        .dev-console-panel.collapsed {
+            height: 30px;
+        }
+
+        .dev-console-header {
+            background: #2d2d2d;
+            padding: 8px 12px;
+            border-bottom: 1px solid #404040;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            cursor: pointer;
+            user-select: none;
+            flex-shrink: 0;
+            min-height: 30px;
+        }
+
+        .dev-console-header h5 {
+            margin: 0 !important;
+            color: #4ec9b0;
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .dev-console-controls {
+            display: flex !important;
+            gap: 8px !important;
+            flex-shrink: 0;
+        }
+
+        .dev-console-controls button {
+            background: #404040 !important;
+            border: 1px solid #555 !important;
+            color: #d4d4d4 !important;
+            padding: 4px 12px !important;
+            cursor: pointer;
+            font-size: 11px;
+            border-radius: 2px;
+            white-space: nowrap;
+            font-family: inherit;
+        }
+
+        .dev-console-controls button:hover {
+            background: #505050 !important;
+        }
+
+        .dev-console-controls button:active {
+            background: #606060 !important;
+        }
+
+        .dev-console-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 8px 12px;
+            background: #1e1e1e;
+            font-family: 'Courier New', 'Monaco', monospace;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .dev-console-content.hidden {
+            display: none;
+        }
+
+        .console-log {
+            margin: 3px 0;
+            padding: 2px 0;
+            word-break: break-word;
+            white-space: pre-wrap;
+            border-left: 3px solid transparent;
+            padding-left: 8px;
+            line-height: 1.5;
+        }
+
+        .console-log.error {
+            color: #f48771;
+            border-left-color: #f48771;
+            background: rgba(244, 135, 113, 0.1);
+        }
+
+        .console-log.warn {
+            color: #dcdcaa;
+            border-left-color: #dcdcaa;
+            background: rgba(220, 220, 170, 0.05);
+        }
+
+        .console-log.info {
+            color: #569cd6;
+            border-left-color: #569cd6;
+        }
+
+        .console-log.debug {
+            color: #858585;
+            border-left-color: #858585;
+        }
+
+        .console-log.log {
+            color: #d4d4d4;
+            border-left-color: #6a9955;
+        }
+
+        .console-log-timestamp {
+            color: #6a9955;
+            margin-right: 10px;
+            user-select: none;
+        }
+
+        .console-log-type {
+            color: #c586c0;
+            margin-right: 10px;
+            min-width: 60px;
+            display: inline-block;
+            user-select: none;
+            font-weight: bold;
+        }
+
+        .console-log-message {
+            display: block;
+            margin-top: 2px;
+            font-family: 'Courier New', 'Monaco', monospace;
+        }
+
+        .stack-trace {
+            display: block;
+            color: #858585;
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px solid #404040;
+            font-size: 10px;
+            line-height: 1.3;
+        }
+
+        .dev-console-resizer {
+            height: 4px;
+            background: #404040;
+            cursor: ns-resize;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .dev-console-resizer:hover {
+            background: #606060;
+        }
+
+        .console-expandable {
+            cursor: pointer;
+            color: #569cd6;
+            text-decoration: underline;
+            user-select: none;
+        }
+
+        .console-expandable:hover {
+            color: #6db3f2;
+        }
+
+        .console-expanded-content {
+            display: none;
+            margin-top: 4px;
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 2px solid #404040;
+            font-size: 10px;
+            color: #858585;
+        }
+
+        .console-expanded-content.show {
+            display: block;
+        }
+    </style>
 </head>
 
 <body>
@@ -20,10 +224,281 @@
     </div>
 
     <div id="blazor-error-ui">
-        An unhandled error has occurred.
-        <a href="" class="reload">Reload</a>
+        <environment include="Development">
+            <div style="padding: 20px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24; font-family: monospace; white-space: pre-wrap;">
+                <h4>⚠️ An error occurred during Blazor initialization</h4>
+                <p>Check the browser console (F12) and the terminal panel at the bottom for detailed error messages and stack traces.</p>
+                <p style="margin-top: 10px; font-size: 12px;">Common issues:</p>
+                <ul style="margin: 5px 0; padding-left: 20px;">
+                    <li>JavaScript errors in console</li>
+                    <li>Network errors loading Blazor files</li>
+                    <li>SignalR connection failures</li>
+                </ul>
+                <a href="" class="reload" style="display: inline-block; margin-top: 10px; padding: 5px 10px; background: #721c24; color: white; text-decoration: none; border-radius: 3px;">Reload Page</a>
+            </div>
+        </environment>
+        <environment exclude="Development">
+            An unhandled error has occurred.
+            <a href="" class="reload">Reload</a>
+        </environment>
         <a class="dismiss">🗙</a>
     </div>
+
+    <!-- Developer Console Panel -->
+    <div class="dev-console-resizer" id="consoleResizer"></div>
+    <div class="dev-console-panel" id="devConsole">
+        <div class="dev-console-header" id="consoleHeader">
+            <h5>📋 Developer Console (Errors, Warnings, Stack Traces)</h5>
+            <div class="dev-console-controls">
+                <button type="button" id="clearBtn">🗑️ Clear</button>
+                <button type="button" id="toggleBtn">⬆️ Collapse</button>
+            </div>
+        </div>
+        <div class="dev-console-content" id="consoleContent"></div>
+    </div>
+
+    <script>
+        class DevConsole {
+            constructor() {
+                this.logs = [];
+                this.maxLogs = 500;
+                this.panel = document.getElementById('devConsole');
+                this.content = document.getElementById('consoleContent');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.toggleBtn = document.getElementById('toggleBtn');
+                this.header = document.getElementById('consoleHeader');
+                this.resizer = document.getElementById('consoleResizer');
+                this.isCollapsed = false;
+
+                this.setupEventListeners();
+                this.setupConsoleOverride();
+                this.setupErrorHandlers();
+                this.setupBlazorErrorHandlers();
+            }
+
+            setupEventListeners() {
+                this.clearBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.clear();
+                });
+
+                this.toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.toggle();
+                });
+
+                // Resizer
+                let isResizing = false;
+                this.resizer.addEventListener('mousedown', () => {
+                    isResizing = true;
+                });
+                document.addEventListener('mousemove', (e) => {
+                    if (!isResizing) return;
+                    const newHeight = window.innerHeight - e.clientY;
+                    if (newHeight > 50 && newHeight < 600) {
+                        this.panel.style.height = newHeight + 'px';
+                    }
+                });
+                document.addEventListener('mouseup', () => {
+                    isResizing = false;
+                });
+            }
+
+            setupConsoleOverride() {
+                const originalLog = console.log;
+                const originalError = console.error;
+                const originalWarn = console.warn;
+                const originalInfo = console.info;
+                const originalDebug = console.debug;
+
+                console.log = (...args) => {
+                    originalLog(...args);
+                    this.addLog('log', args);
+                };
+
+                console.error = (...args) => {
+                    originalError(...args);
+                    this.addLog('error', args);
+                };
+
+                console.warn = (...args) => {
+                    originalWarn(...args);
+                    this.addLog('warn', args);
+                };
+
+                console.info = (...args) => {
+                    originalInfo(...args);
+                    this.addLog('info', args);
+                };
+
+                console.debug = (...args) => {
+                    originalDebug(...args);
+                    this.addLog('debug', args);
+                };
+            }
+
+            setupErrorHandlers() {
+                window.addEventListener('error', (event) => {
+                    const stack = event.error?.stack || 'No stack trace available';
+                    this.addLog('error', [
+                        `Uncaught Error: ${event.message}`,
+                        `at ${event.filename}:${event.lineno}:${event.colno}`,
+                    ], stack);
+                });
+
+                window.addEventListener('unhandledrejection', (event) => {
+                    const reason = event.reason;
+                    const message = reason instanceof Error ? reason.message : String(reason);
+                    const stack = reason instanceof Error ? reason.stack : 'No stack trace';
+                    this.addLog('error', [
+                        `Unhandled Promise Rejection: ${message}`
+                    ], stack);
+                });
+            }
+
+            setupBlazorErrorHandlers() {
+                // Listen for Blazor errors
+                document.addEventListener('blazor:error', (event) => {
+                    console.error('Blazor Error:', event.detail);
+                });
+
+                // Monitor for connection issues
+                if (window.Blazor) {
+                    document.addEventListener('blazor:initializing', () => {
+                        console.info('🔄 Blazor initializing...');
+                    });
+
+                    document.addEventListener('blazor:initialized', () => {
+                        console.info('✅ Blazor initialized successfully');
+                    });
+                }
+            }
+
+            addLog(type, args, stackTrace = null) {
+                const timestamp = new Date().toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    fractionalSecondDigits: 3
+                });
+
+                const messages = args.map(arg => {
+                    if (typeof arg === 'object' && arg !== null) {
+                        try {
+                            return JSON.stringify(arg, null, 2);
+                        } catch {
+                            return String(arg);
+                        }
+                    }
+                    return String(arg);
+                });
+
+                this.logs.push({
+                    type,
+                    messages,
+                    stackTrace,
+                    timestamp,
+                    id: Date.now() + Math.random()
+                });
+
+                if (this.logs.length > this.maxLogs) {
+                    this.logs.shift();
+                }
+
+                this.render();
+            }
+
+            render() {
+                this.content.innerHTML = this.logs
+                    .map((log, idx) => {
+                        const icon = this.getIcon(log.type);
+                        const expandId = `expand-${log.id}`;
+                        const contentId = `content-${log.id}`;
+
+                        let html = `<div class="console-log ${log.type}">
+                            <span class="console-log-timestamp">[${log.timestamp}]</span>
+                            <span class="console-log-type">${icon} ${log.type.toUpperCase()}</span>`;
+
+                        html += '<div class="console-log-message">';
+                        html += log.messages.map(msg => this.escapeHtml(msg)).join('<br>');
+                        html += '</div>';
+
+                        if (log.stackTrace) {
+                            html += `<div class="stack-trace" id="${expandId}" style="cursor: pointer;">
+                                <strong>Click to view stack trace</strong>
+                                <div id="${contentId}" class="console-expanded-content">
+                                    <pre>${this.escapeHtml(log.stackTrace)}</pre>
+                                </div>
+                            </div>`;
+                        }
+
+                        html += '</div>';
+                        return html;
+                    })
+                    .join('');
+
+                // Attach stack trace click handlers
+                document.querySelectorAll('[id^="expand-"]').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const contentId = el.id.replace('expand-', 'content-');
+                        const content = document.getElementById(contentId);
+                        if (content) {
+                            content.classList.toggle('show');
+                        }
+                    });
+                });
+
+                // Auto-scroll to bottom
+                this.content.scrollTop = this.content.scrollHeight;
+            }
+
+            getIcon(type) {
+                const icons = {
+                    error: '❌',
+                    warn: '⚠️',
+                    info: 'ℹ️',
+                    debug: '🔧',
+                    log: '📝'
+                };
+                return icons[type] || '•';
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            clear() {
+                this.logs = [];
+                this.render();
+            }
+
+            toggle() {
+                this.isCollapsed = !this.isCollapsed;
+                this.content.classList.toggle('hidden');
+                this.resizer.style.display = this.isCollapsed ? 'none' : 'block';
+                this.toggleBtn.textContent = this.isCollapsed ? '⬇️ Expand' : '⬆️ Collapse';
+                this.panel.classList.toggle('collapsed');
+            }
+        }
+
+        // Initialize developer console when DOM is ready
+        const initConsole = () => {
+            window.devConsole = new DevConsole();
+            console.info('🚀 Ratchet Test Runner Started');
+            console.info('📦 Blazor Environment: Development');
+            console.info('🔌 SignalR Hub: /testexecutionhub');
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initConsole);
+        } else {
+            initConsole();
+        }
+    </script>
 
     <script src="_framework/blazor.web.js"></script>
 </body>

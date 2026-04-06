@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using RatchetTestRunner;
 using RatchetTestRunner.Components;
 using RatchetTestRunner.Services;
 using RatchetTestRunner.Hubs;
@@ -27,10 +28,15 @@ builder.Services.AddLogging(config =>
     if (builder.Environment.IsDevelopment())
     {
         config.SetMinimumLevel(LogLevel.Debug);
+        config.AddDebug();
     }
 });
 
 var app = builder.Build();
+
+// Configure port
+app.Urls.Add("http://localhost:5300");
+app.Urls.Add("https://localhost:5301");
 
 // Configure the HTTP request pipeline
 if (!app.Environment.IsDevelopment())
