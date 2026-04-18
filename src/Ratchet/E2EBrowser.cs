@@ -47,12 +47,14 @@ public class Ratchet : IDisposable, IAsyncDisposable
         return new Ratchet(_testHostClient);
     }
 
-    public static Ratchet Create(WebApplication webApplication)
+    public Ratchet (WebApplication webApplication)
     {
         //var s = webApplication.GetTestServer();
         var s = new TestServer( webApplication.Services);
-        var _testHostClient = s.CreateClient();
-        return new Ratchet(_testHostClient);
+        _testHostClient = s.CreateClient();
+        webApplication.Run();
+        _baseUrl = _testHostClient.BaseAddress.ToString();
+
     }
     private Ratchet (HttpClient httpClient) 
     {
@@ -187,7 +189,6 @@ public class Ratchet : IDisposable, IAsyncDisposable
         if (_browser != null) await _browser.CloseAsync();
         _playwright?.Dispose();
         _testHostClient?.Dispose();
-        if (_factory != null) await _factory.DisposeAsync();
         _initLock?.Dispose();
     }
 }

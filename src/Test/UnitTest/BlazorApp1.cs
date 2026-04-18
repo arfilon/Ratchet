@@ -96,7 +96,7 @@ public class BlazorApp1Tests
     [TestMethod]
     public async Task Login()
     {
-        var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>();
+        var b = Arfilon.Ratchet.Ratchet.Create<WebApplication.Startup>();
 
         await browser.GotoAsync("/test/");
         await browser.FillAsync("#txtUsername", "Admin");

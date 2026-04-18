@@ -21,7 +21,7 @@ public class ScreenshotTest
     {
         testContext = context;
         screenshotFolder = Path.Combine(context.TestRunDirectory, "screenshots");
-        var application = new Ratchet<WebApplication.Startup>();
+        var application = Ratchet.Create<WebApplication.Startup>();
         appContext = await application.NewContextAsync(false);
     }
     [TestInitialize()]
@@ -95,7 +95,7 @@ public class ScreenshotTest
     [TestMethod]
     public async Task Login()
     {
-        var b = new Arfilon.Ratchet.Ratchet<WebApplication.Startup>();
+        var b = Arfilon.Ratchet.Ratchet.Create<WebApplication.Startup>();
 
         await browser.GotoAsync("/test/");
         await browser.FillAsync("#txtUsername", "Admin");
