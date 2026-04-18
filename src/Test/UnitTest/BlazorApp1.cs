@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace UnitTest;
 
 [TestClass]
-public class ScreenshotTest
+public class BlazorApp1Tests
 {
     private const bool cleanup = false;
     private static TestContext testContext;
@@ -21,7 +21,8 @@ public class ScreenshotTest
     {
         testContext = context;
         screenshotFolder = Path.Combine(context.TestRunDirectory, "screenshots");
-        var application = new Ratchet<WebApplication.Startup>();
+        //var application = new Ratchet<WebApplication.Startup>();
+        var application = new Ratchet(BlazorApp1.Program.BuildApp([]));
         appContext = await application.NewContextAsync(false);
     }
     [TestInitialize()]

@@ -1,11 +1,15 @@
 #nullable disable
-using System.IO;
-using System.Net.Http;
-using System.Threading;
-using Microsoft.Playwright;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Playwright;
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading;
 
 namespace Arfilon.Ratchet;
 
@@ -13,78 +17,87 @@ namespace Arfilon.Ratchet;
 /// Ratchet browser automation for ASP.NET Core testing, powered by Playwright.
 /// Provides in-memory TestHost integration for fast, isolated testing.
 /// </summary>
-public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : class
+public class Ratchet : IDisposable, IAsyncDisposable
 {
     public int DefaultTimeout = 20000;
 
-    private readonly WebApplicationFactory<TSetup> _factory;
     private readonly HttpClient _testHostClient;
-    private string _baseUrl = "http://localhost";
+    private string _baseUrl;
 
     private IPlaywright _playwright;
     private IBrowser _browser;
-    private IPage _page;
-    private IBrowserContext _context;
-
-    private bool _initialized;
     private readonly SemaphoreSlim _initLock = new(1, 1);
 
-    public event Action<object> OnConsoleLog;
-
     // Constructors matching original API
-    public Ratchet(Action<WebHostBuilderContext, IConfigurationBuilder> configureDelegate, string baseAddress = null)
+    //public Ratchet(Action<WebHostBuilderContext, IConfigurationBuilder> configureDelegate)
+    //    : this(builder => builder.ConfigureAppConfiguration(configureDelegate)) { }
+
+
+    //public static Ratchet Create<TSetup>(Action<IWebHostBuilder> webHostBuilderDelegate)
+    //    : this(new WebApplicationFactory<TSetup>().WithWebHostBuilder(webHostBuilderDelegate)) { }
+
+    public static Ratchet Create<TSetup>() where TSetup : class
     {
-        _factory = CreateFactory(builder => builder.ConfigureAppConfiguration(configureDelegate));
-        _testHostClient = _factory.CreateClient();
-        _baseUrl = string.IsNullOrWhiteSpace(baseAddress)
-            ? _testHostClient.BaseAddress?.ToString().TrimEnd('/') ?? "http://localhost"
-            : baseAddress.TrimEnd('/');
+      return  Ratchet.Create(new WebApplicationFactory<TSetup>());
     }
 
-    public Ratchet(Action<IWebHostBuilder> configureDelegate, string baseAddress = null)
+    public static Ratchet Create<TSetup>(WebApplicationFactory<TSetup> factory) where TSetup : class
     {
-        _factory = CreateFactory(configureDelegate);
-        _testHostClient = _factory.CreateClient();
-        _baseUrl = string.IsNullOrWhiteSpace(baseAddress)
-            ? _testHostClient.BaseAddress?.ToString().TrimEnd('/') ?? "http://localhost"
-            : baseAddress.TrimEnd('/');
+        var _testHostClient = factory.CreateClient();
+        return new Ratchet(_testHostClient);
     }
 
-    public Ratchet(string baseAddress = null)
+    public static Ratchet Create(WebApplication webApplication)
     {
-        _factory = new WebApplicationFactory<TSetup>();
-        _testHostClient = _factory.CreateClient();
-        _baseUrl = string.IsNullOrWhiteSpace(baseAddress)
-            ? _testHostClient.BaseAddress?.ToString().TrimEnd('/') ?? "http://localhost"
-            : baseAddress.TrimEnd('/');
+        //var s = webApplication.GetTestServer();
+        var s = new TestServer( webApplication.Services);
+        var _testHostClient = s.CreateClient();
+        return new Ratchet(_testHostClient);
+    }
+    private Ratchet (HttpClient httpClient) 
+    {
+        _testHostClient = httpClient;
+        //_baseUrl = string.IsNullOrWhiteSpace(baseAddress)
+        //    ? _testHostClient.BaseAddress?.ToString().TrimEnd('/') ?? "http://localhost"
+        //    : baseAddress.TrimEnd('/');
+        _baseUrl = _testHostClient.BaseAddress.ToString();
     }
 
-    private WebApplicationFactory<TSetup> CreateFactory(Action<IWebHostBuilder> configure)
+
+    //private Ratchet(WebApplication webApplication)
+    //{
+    //    var x = 
+    //    _factory = factory;
+    //    _testHostClient = _factory.CreateClient();
+    //    //_baseUrl = string.IsNullOrWhiteSpace(baseAddress)
+    //    //    ? _testHostClient.BaseAddress?.ToString().TrimEnd('/') ?? "http://localhost"
+    //    //    : baseAddress.TrimEnd('/');
+    //    _baseUrl = _testHostClient.BaseAddress.ToString();
+    //}
+
+    public async Task<IBrowserContext> NewContextAsync(bool headless = true)
     {
-        return new WebApplicationFactory<TSetup>().WithWebHostBuilder(configure);
+        await CreateBrawser(headless);
+        var context = await _browser.NewContextAsync(new BrowserNewContextOptions
+        {
+            BaseURL = _baseUrl,
+            IgnoreHTTPSErrors = true
+        });
+        // Setup route interception for in-memory TestHost
+        await SetupRouteInterceptionAsync(context);
+        return context;
+
     }
 
-    private async Task EnsureInitializedAsync()
+    private async Task CreateBrawser(bool headless)
     {
-        if (_initialized) return;
-
+        if (_browser != null) return;
         await _initLock.WaitAsync();
+        if (_browser != null) return;
         try
         {
-            if (_initialized) return;
-
             _playwright = await Playwright.CreateAsync();
-            _browser = await _playwright.Chromium.LaunchAsync(new() { Headless = true });
-            _context = await _browser.NewContextAsync();
-            _page = await _context.NewPageAsync();
-
-            // Setup route interception for in-memory TestHost
-            await SetupRouteInterceptionAsync();
-
-            // Setup console logging
-            _page.Console += (_, msg) => OnConsoleLog?.Invoke(msg.Text);
-
-            _initialized = true;
+            _browser = await _playwright.Chromium.LaunchAsync(new() { Headless = headless });
         }
         finally
         {
@@ -92,53 +105,57 @@ public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : clas
         }
     }
 
-    private async Task SetupRouteInterceptionAsync()
+    private async Task SetupRouteInterceptionAsync(IBrowserContext context)
     {
-        await _page.RouteAsync("**/*", async route =>
+        await context.RouteAsync(
+            path => path.StartsWith(_baseUrl, StringComparison.OrdinalIgnoreCase),
+            async route =>
         {
-            var request = route.Request;
-            var url = request.Url;
-
-            // Only intercept localhost URLs (our in-memory TestHost)
-            // This handles both http://localhost and http://localhost:port patterns
-            if (!url.StartsWith("http://localhost", StringComparison.OrdinalIgnoreCase) &&
-                !url.StartsWith("https://localhost", StringComparison.OrdinalIgnoreCase))
-            {
-                await route.ContinueAsync();
-                return;
-            }
-
             try
             {
+                var request = route.Request;
+
                 // Forward to in-memory TestHost
                 var httpRequest = new HttpRequestMessage
                 {
                     Method = new HttpMethod(request.Method),
-                    RequestUri = new Uri(url)
+                    RequestUri = new Uri(request.Url)
                 };
-
-                foreach (var header in request.Headers.Where(h => !IsRestrictedHeader(h.Key)))
+                httpRequest.Headers.Clear();
+                var contentTypeHeaderName = "content-type";
+                string[] butHeaders = [contentTypeHeaderName];
+                foreach (var header in request.Headers.Where(t => !butHeaders.Contains(t.Key)))
                 {
-                    httpRequest.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                    httpRequest.Headers.Add(header.Key, header.Value);
                 }
 
-                if (request.PostData != null)
+                if (request.PostDataBuffer != null)
                 {
-                    httpRequest.Content = new StringContent(request.PostData);
+
+                    var content = new System.Net.Http.ByteArrayContent(request.PostDataBuffer);
+                    content.Headers.Add(contentTypeHeaderName, request.Headers[contentTypeHeaderName]);
+                    httpRequest.Content = content;
                 }
 
-                var response = await _testHostClient.SendAsync(httpRequest);
-
-                await route.FulfillAsync(new()
+                var response = await _testHostClient.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead);
+                RouteFulfillOptions routeFallbackOptions = new()
                 {
-                    Status = (int)response.StatusCode,
-                    Headers = ConvertHeaders(response),
-                    BodyBytes = await response.Content.ReadAsByteArrayAsync()
-                });
+                    //Body = clone.Body;
+                    BodyBytes = await response.Content.ReadAsByteArrayAsync(),
+                    //ContentType = clone.ContentType;
+                    Headers = response.Headers.ToDictionary(h => h.Key, h => string.Join(", ", h.Value)),
+                    Status = (int)response.StatusCode
+                    //Json = clone.Json;
+                    //Path = clone.Path;
+                    //Response = new RatchetResponse(response)
+                    //Status = clone.Status;
+                };
+                throw new Exception($"Error processing request {route.Request.Url}");
+                await route.FulfillAsync(routeFallbackOptions);
             }
-            catch
+            catch (Exception ex)
             {
-                await route.ContinueAsync();
+                throw new Exception($"Error processing request {route.Request.Url}: {ex.Message}", ex);
             }
         });
     }
@@ -158,197 +175,6 @@ public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : clas
         return headers;
     }
 
-    public async Task<PlaywrightDocument> OpenUrl(string path)
-    {
-        await EnsureInitializedAsync();
-
-        string fullUrl;
-        // Check if path is an HTTP/HTTPS URL
-        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        {
-            // Path is already an absolute HTTP URL
-            fullUrl = path;
-        }
-        else
-        {
-            // Construct full URL from base + relative path
-            // Note: Even though TestServer is in-memory, we need a valid URL format for Playwright
-            // The route interception will catch this and forward to TestHost
-            var baseUri = _baseUrl;
-
-            // Ensure proper URI format
-            if (!baseUri.Contains("://"))
-                baseUri = $"http://{baseUri}";
-
-            // Add port if localhost without port (TestServer case)
-            if (baseUri == "http://localhost" || baseUri == "http://localhost/")
-                baseUri = "http://localhost:5000"; // Use a dummy port for URL construction
-
-            if (!baseUri.EndsWith("/"))
-                baseUri += "/";
-
-            var relativePath = path.TrimStart('/');
-            fullUrl = new Uri(new Uri(baseUri), relativePath).AbsoluteUri;
-        }
-
-        await _page.GotoAsync(fullUrl);
-        await _page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
-
-        return new PlaywrightDocument(_page);
-    }
-
-    public void ExecuteJavaScript(string script)
-    {
-        _page.EvaluateAsync(script).GetAwaiter().GetResult();
-    }
-
-    public async void FillInput(string query, string text)
-    {
-        await EnsureInitializedAsync();
-        await _page.FillAsync(query, text);
-    }
-
-    public async void ElementClick(string query)
-    {
-        await EnsureInitializedAsync();
-        await _page.ClickAsync(query);
-    }
-
-    public async void FillTextArea(string query, string text)
-    {
-        await EnsureInitializedAsync();
-        await _page.FillAsync(query, text);
-    }
-
-    public async Task<PlaywrightDocument> WaitDocumentLoad()
-    {
-        await EnsureInitializedAsync();
-        await _page.WaitForLoadStateAsync(LoadState.Load);
-        return new PlaywrightDocument(_page);
-    }
-
-    public async Task<string> WaitNextConsoleLog()
-    {
-        await EnsureInitializedAsync();
-        var tcs = new TaskCompletionSource<string>();
-
-        void Handler(object obj)
-        {
-            tcs.TrySetResult(obj?.ToString());
-            OnConsoleLog -= Handler;
-        }
-
-        OnConsoleLog += Handler;
-        return await tcs.Task;
-    }
-
-    public async Task<string> WaitNextAlert()
-    {
-        await EnsureInitializedAsync();
-        var tcs = new TaskCompletionSource<string>();
-
-        void Handler(object sender, IDialog dialog)
-        {
-            tcs.TrySetResult(dialog.Message);
-            dialog.AcceptAsync().GetAwaiter().GetResult();
-        }
-
-        _page.Dialog += Handler;
-        var result = await tcs.Task;
-        _page.Dialog -= Handler;
-
-        return result;
-    }
-
-    public async Task<IElementHandle> WaitId(string id, int timeout = 0)
-    {
-        await EnsureInitializedAsync();
-        timeout = timeout == 0 ? DefaultTimeout : timeout;
-        return await _page.WaitForSelectorAsync($"#{id}", new() { Timeout = timeout });
-    }
-
-    public async Task WaitDesappearingOfId(string id, int timeout = 0)
-    {
-        await EnsureInitializedAsync();
-        timeout = timeout == 0 ? DefaultTimeout : timeout;
-        await _page.WaitForSelectorAsync($"#{id}", new()
-        {
-            State = WaitForSelectorState.Hidden,
-            Timeout = timeout
-        });
-    }
-
-    public async Task<IElementHandle> FirstElement(string query)
-    {
-        await EnsureInitializedAsync();
-        return await _page.QuerySelectorAsync(query);
-    }
-
-    public async Task<IReadOnlyList<IElementHandle>> WaitSelector(string query, int timeout = 0)
-    {
-        await EnsureInitializedAsync();
-        timeout = timeout == 0 ? DefaultTimeout : timeout;
-        await _page.WaitForSelectorAsync(query, new() { Timeout = timeout });
-        return await _page.QuerySelectorAllAsync(query);
-    }
-
-    public Task WaitDocumentChanged(string query, int timeout = 0)
-    {
-        // Playwright handles DOM changes automatically
-        return Task.CompletedTask;
-    }
-
-    public async Task<IReadOnlyList<IElementHandle>> Get(string query)
-    {
-        await EnsureInitializedAsync();
-        return await _page.QuerySelectorAllAsync(query);
-    }
-
-    /// <summary>
-    /// Takes a screenshot of the current page and saves it to the specified path.
-    /// Useful for debugging failing tests.
-    /// </summary>
-    /// <param name="path">
-    /// Optional file path where the screenshot will be saved.
-    /// If not provided, generates a timestamped filename in the current directory.
-    /// Supported formats: .png (default), .jpg, .jpeg
-    /// </param>
-    /// <param name="fullPage">If true, captures the entire scrollable page. Default is false (viewport only).</param>
-    /// <returns>The full path where the screenshot was saved.</returns>
-    public async Task<string> TakeScreenshot(string path = null, bool fullPage = false)
-    {
-        await EnsureInitializedAsync();
-
-        // Generate default filename if not provided
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
-            path = $"screenshot_{timestamp}.png";
-        }
-
-        // Ensure absolute path
-        if (!Path.IsPathRooted(path))
-        {
-            path = Path.Combine(Directory.GetCurrentDirectory(), path);
-        }
-
-        // Create directory if it doesn't exist
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        await _page.ScreenshotAsync(new()
-        {
-            Path = path,
-            FullPage = fullPage
-        });
-
-        return path;
-    }
-
     public void Dispose()
     {
         DisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -356,8 +182,8 @@ public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : clas
 
     public async ValueTask DisposeAsync()
     {
-        if (_page != null) await _page.CloseAsync();
-        if (_context != null) await _context.CloseAsync();
+        //if (_page != null) await _page.CloseAsync();
+        //if (_context != null) await _context.CloseAsync();
         if (_browser != null) await _browser.CloseAsync();
         _playwright?.Dispose();
         _testHostClient?.Dispose();
@@ -366,19 +192,3 @@ public class Ratchet<TSetup> : IDisposable, IAsyncDisposable where TSetup : clas
     }
 }
 
-/// <summary>
-/// Wrapper for Playwright page to match original Document API
-/// </summary>
-public class PlaywrightDocument
-{
-    private readonly IPage _page;
-
-    public PlaywrightDocument(IPage page)
-    {
-        _page = page;
-    }
-
-    public string TextContent => _page.TextContentAsync("body").GetAwaiter().GetResult();
-
-    public async Task<string> GetTextContentAsync() => await _page.TextContentAsync("body");
-}
